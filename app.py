@@ -7,6 +7,7 @@ from google import genai
 
 app = FastAPI(title="NebulaAI - DEV HACKERS")
 
+# Initialisation propre du client Google GenAI (récupère automatiquement la variable d'environnement GEMINI_API_KEY sur Render)
 client = genai.Client()
 
 MESSAGES_DB = []
@@ -21,6 +22,9 @@ class ContactRequest(BaseModel):
 @app.post("/api/chat")
 async def chat_with_gemini(req: ChatRequest):
     try:
+        if not req.message.strip():
+            raise HTTPException(status_code=400, detail="Le message est vide.")
+            
         clean_msg = req.message.encode('ascii', 'ignore').decode('ascii')
         
         if req.mode == "roast":
@@ -40,6 +44,8 @@ async def chat_with_gemini(req: ChatRequest):
 
 @app.post("/api/contact")
 async def contact_admin(req: ContactRequest):
+    if not req.message.strip():
+        raise HTTPException(status_code=400, detail="Message vide.")
     MESSAGES_DB.append({"message": req.message})
     return {"status": "success", "message": "Votre message a bien été transmis."}
 
