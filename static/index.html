@@ -14,9 +14,7 @@
             0%, 100% { opacity: 1; text-shadow: 0 0 20px rgba(99, 102, 241, 0.6); }
             50% { opacity: 0.5; text-shadow: 0 0 5px rgba(99, 102, 241, 0.2); }
         }
-        .animate-gemini-logo {
-            animation: gemini-glow 3s ease-in-out infinite;
-        }
+        .animate-gemini-logo { animation: gemini-glow 3s ease-in-out infinite; }
         @keyframes pulse-dot {
             0%, 100% { transform: scale(1); opacity: 1; }
             50% { transform: scale(0.85); opacity: 0.4; }
@@ -25,33 +23,6 @@
     </style>
 </head>
 <body class="bg-[#131314] text-[#e3e3e3] h-screen flex overflow-hidden">
-
-    <!-- Modal d'inscription (Nom + Numéro de téléphone) -->
-    <div id="authModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-        <div class="bg-[#1e1f20] border border-[#333537] rounded-3xl p-8 max-w-md w-full shadow-2xl text-center space-y-6">
-            <div class="w-16 h-16 bg-indigo-600/20 border border-indigo-500/30 rounded-2xl mx-auto flex items-center justify-center text-indigo-400 text-2xl animate-gemini-logo">
-                <i class="fa-solid fa-sparkles"></i>
-            </div>
-            <div>
-                <h2 class="text-xl font-bold text-white tracking-wide">Connexion à NebulaAI</h2>
-                <p class="text-xs text-slate-400 mt-1">Propulsé par DEV HACKERS • Expérience Gemini</p>
-            </div>
-            <div class="space-y-4 text-left">
-                <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-1">Votre Nom ou Surnom de Développeur</label>
-                    <input type="text" id="regName" placeholder="Ex: Neo / CyberDev" class="w-full bg-[#131314] border border-[#333537] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-1">Votre Numéro de téléphone</label>
-                    <input type="text" id="regPhone" placeholder="Ex: +33600000000" class="w-full bg-[#131314] border border-[#333537] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500">
-                </div>
-            </div>
-            <button onclick="registerUser()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 rounded-xl transition-all shadow-lg shadow-indigo-600/25 cursor-pointer">
-                Démarrer la session
-            </button>
-            <p id="authError" class="text-xs text-red-400 hidden"></p>
-        </div>
-    </div>
 
     <!-- Sidebar (Menu latéral avec les 3 traits) -->
     <aside id="sidebar" class="w-64 bg-[#1e1f20] border-r border-[#333537] flex flex-col transition-all duration-300 z-20">
@@ -77,7 +48,7 @@
             </button>
         </div>
         <div class="p-4 border-t border-[#333537] text-xs text-slate-500 flex items-center justify-between">
-            <span id="userBadge" class="font-medium text-slate-300">Invité</span>
+            <span class="font-medium text-slate-300">DEV HACKERS</span>
             <span class="text-emerald-400 flex items-center"><span class="w-2 h-2 bg-emerald-500 rounded-full inline-block mr-1.5 animate-dot"></span>Online</span>
         </div>
     </aside>
@@ -170,10 +141,6 @@
                             <h3 class="text-sm font-bold text-slate-200 mb-3">Messages des utilisateurs :</h3>
                             <div id="adminMessagesList" class="space-y-2 max-h-48 overflow-y-auto"></div>
                         </div>
-                        <div>
-                            <h3 class="text-sm font-bold text-slate-200 mb-3">Utilisateurs inscrits & Gestion :</h3>
-                            <div id="adminUsersList" class="space-y-2 max-h-60 overflow-y-auto"></div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -182,40 +149,6 @@
     </main>
 
     <script>
-        let currentUser = { name: "", phone: "" };
-
-        function registerUser() {
-            const name = document.getElementById('regName').value.trim();
-            const phone = document.getElementById('regPhone').value.trim();
-            const errorBox = document.getElementById('authError');
-
-            if (!name || !phone) {
-                errorBox.textContent = "Veuillez remplir votre nom et votre numéro de téléphone.";
-                errorBox.classList.remove('hidden');
-                return;
-            }
-
-            fetch('/api/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, phone })
-            })
-            .then(async res => {
-                const data = await res.json();
-                if (res.ok) {
-                    currentUser = { name, phone };
-                    document.getElementById('userBadge').textContent = name;
-                    document.getElementById('authModal').classList.add('hidden');
-                } else {
-                    errorBox.textContent = data.detail || "Erreur d'accès";
-                    errorBox.classList.remove('hidden');
-                }
-            }).catch(err => {
-                errorBox.textContent = "Erreur réseau.";
-                errorBox.classList.remove('hidden');
-            });
-        }
-
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('w-64');
@@ -245,7 +178,7 @@
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message, mode, phone: currentUser.phone })
+                    body: JSON.stringify({ message, mode, phone: "web_user" })
                 });
                 const data = await response.json();
                 if (response.ok) {
@@ -266,7 +199,7 @@
             const res = await fetch('/api/contact', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone: currentUser.phone, message })
+                body: JSON.stringify({ phone: "web_user", message })
             });
             if (res.ok) {
                 feedback.textContent = "Message envoyé avec succès à l'administrateur !";
@@ -285,38 +218,10 @@
                 const msgList = document.getElementById('adminMessagesList');
                 msgList.innerHTML = data.messages.length ? "" : "<p class='text-xs text-slate-500'>Aucun message.</p>";
                 data.messages.forEach(m => {
-                    msgList.innerHTML += <div class='bg-[#131314] p-3 rounded-xl text-xs border border-[#333537]'><b>Tél: ${m.phone}</b> :${m.message}</div>;
-                });
-
-                const userList = document.getElementById('adminUsersList');
-                userList.innerHTML = data.users.length ? "" : "<p class='text-xs text-slate-500'>Aucun utilisateur.</p>";
-                data.users.forEach(u => {
-                    const isBanned = data.banned.includes(u.phone);
-                    userList.innerHTML += `<div class='flex items-center justify-between bg-[#131314] p-3 rounded-xl text-xs border border-[#333537]'>
-                        <span><b>${u.name}</b> (${u.phone}) - Statut: <span class="${isBanned ? 'text-red-400' : 'text-emerald-400'}">${isBanned ? 'Banni' : 'Actif'}</span></span>
-                        <div>
-                            ${isBanned 
-                                ? <button onclick="adminAction('${u.phone}', 'unban')" class='bg-emerald-600/20 text-emerald-400 px-3 py-1 rounded-lg border border-emerald-500/30 cursor-pointer'>Débannir</button> 
-                                : `<button onclick="adminAction('${u.phone}', 'ban')" class='bg-red-600/20 text-red-400 px-3 py-1 rounded-lg border border-red-500/30 cursor-pointer'>Bannir / Bloquer</button>`}
-                        </div>
-                    </div>`;
+                    msgList.innerHTML += <div class='bg-[#131314] p-3 rounded-xl text-xs border border-[#333537]'><b>Message</b> : ${m.message}</div>;
                 });
             } else {
                 alert("Clé admin incorrecte !");
-            }
-        }
-
-        async function adminAction(target, action) {
-            const key = document.getElementById('adminKeyInput5`+document.getElementById('adminKeyInput').value; // sécurité
-            // Utilise simplement la valeur de l'input admin
-            const adminKeyVal = document.getElementById('adminKeyInput').value;
-            const res = await fetch(/api/admin/action?admin_key=${adminKeyVal}, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ target, action })
-            });
-            if (res.ok) {
-                loadAdminData();
             }
         }
     </script>
