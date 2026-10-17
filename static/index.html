@@ -22,27 +22,31 @@
         .animate-dot { animation: pulse-dot 2s infinite; }
     </style>
 </head>
-<body class="bg-[#131314] text-[#e3e3e3] h-screen flex overflow-hidden">
+<body class="bg-[#131314] text-[#e3e3e3] h-screen flex overflow-hidden relative">
 
-    <!-- Sidebar (Menu latéral avec les 3 traits) -->
-    <aside id="sidebar" class="w-64 bg-[#1e1f20] border-r border-[#333537] flex flex-col transition-all duration-300 z-20">
+    <!-- Fond sombre semi-transparent quand le menu mobile est ouvert -->
+    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-20 hidden md:hidden"></div>
+
+    <!-- Sidebar (Menu latéral : fermé par défaut sur mobile avec -translate-x-full) -->
+    <aside id="sidebar" class="fixed md:static inset-y-0 left-0 w-64 bg-[#1e1f20] border-r border-[#333537] flex flex-col transition-transform duration-300 transform -translate-x-full md:translate-x-0 z-30 shadow-2xl">
         <div class="p-4 flex items-center justify-between border-b border-[#333537]">
-            <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition-colors">
-                <i class="fa-solid fa-bars text-lg"></i>
-            </button>
             <span class="text-sm font-semibold tracking-wide text-indigo-400">NebulaAI Menu</span>
+            <!-- Bouton pour fermer/masquer le menu sur mobile -->
+            <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer md:hidden">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
         </div>
         <div class="p-4 flex-1 overflow-y-auto space-y-3">
             <div class="text-xs font-medium text-slate-500 uppercase tracking-wider px-2">Navigation</div>
-            <button onclick="switchTab('chat')" class="w-full text-left px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:bg-[#282a2c] flex items-center space-x-3 transition-colors">
+            <button onclick="switchTab('chat')" class="w-full text-left px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:bg-[#282a2c] flex items-center space-x-3 transition-colors cursor-pointer">
                 <i class="fa-solid fa-comments text-indigo-400"></i>
                 <span>Discussion & IA</span>
             </button>
-            <button onclick="switchTab('contact')" class="w-full text-left px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:bg-[#282a2c] flex items-center space-x-3 transition-colors">
+            <button onclick="switchTab('contact')" class="w-full text-left px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:bg-[#282a2c] flex items-center space-x-3 transition-colors cursor-pointer">
                 <i class="fa-solid fa-envelope text-indigo-400"></i>
                 <span>Contacter l'Admin</span>
             </button>
-            <button onclick="switchTab('admin')" class="w-full text-left px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:bg-[#282a2c] flex items-center space-x-3 transition-colors">
+            <button onclick="switchTab('admin')" class="w-full text-left px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:bg-[#282a2c] flex items-center space-x-3 transition-colors cursor-pointer">
                 <i class="fa-solid fa-shield-halved text-red-400"></i>
                 <span>Espace Admin</span>
             </button>
@@ -54,11 +58,12 @@
     </aside>
 
     <!-- Main Content Area -->
-    <main class="flex-1 flex flex-col h-full bg-[#131314] overflow-hidden">
+    <main class="flex-1 flex flex-col h-full bg-[#131314] overflow-hidden w-full">
         <!-- Top Navigation -->
         <header class="h-14 border-b border-[#333537] px-6 flex items-center justify-between bg-[#131314]/80 backdrop-blur">
             <div class="flex items-center space-x-4">
-                <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-[#282a2c] transition-colors">
+                <!-- Bouton avec les 3 traits pour ouvrir le menu -->
+                <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-[#282a2c] transition-colors cursor-pointer">
                     <i class="fa-solid fa-bars text-lg"></i>
                 </button>
                 <h1 class="text-base font-medium text-slate-200">NebulaAI <span class="text-xs text-indigo-400 ml-2">DEV HACKERS</span></h1>
@@ -151,9 +156,9 @@
     <script>
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
-            sidebar.classList.toggle('w-64');
-            sidebar.classList.toggle('w-0');
-            sidebar.classList.toggle('overflow-hidden');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
         }
 
         function switchTab(tabName) {
@@ -161,6 +166,11 @@
             document.getElementById('panel-contact').classList.add('hidden');
             document.getElementById('panel-admin').classList.add('hidden');
             document.getElementById('panel-' + tabName).classList.remove('hidden');
+            
+            // Ferme automatiquement le menu sur téléphone après un clic
+            if(window.innerWidth < 768) {
+                toggleSidebar();
+            }
         }
 
         async function sendMessage(mode) {
@@ -178,7 +188,7 @@
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message, mode, phone: "web_user" })
+                    body: JSON.stringify({ message, mode })
                 });
                 const data = await response.json();
                 if (response.ok) {
@@ -187,7 +197,7 @@
                     outputBox.textContent = "Erreur : " + data.detail;
                 }
             } catch (err) {
-                outputBox.textContent = "Erreur de connexion.";
+                outputBox.textContent = "Erreur de connexion au serveur.";
             }
         }
 
@@ -199,7 +209,7 @@
             const res = await fetch('/api/contact', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone: "web_user", message })
+                body: JSON.stringify({ message })
             });
             if (res.ok) {
                 feedback.textContent = "Message envoyé avec succès à l'administrateur !";
@@ -216,9 +226,9 @@
                 document.getElementById('adminContent').classList.remove('hidden');
                 
                 const msgList = document.getElementById('adminMessagesList');
-                msgList.innerHTML = data.messages.length ? "" : "<p class='text-xs text-slate-500'>Aucun message.</p>";
+                msgList.innerHTML = data.messages.length ? "" : "<p class='text-xs text-slate-500'>Aucun message pour l'instant.</p>";
                 data.messages.forEach(m => {
-                    msgList.innerHTML += <div class='bg-[#131314] p-3 rounded-xl text-xs border border-[#333537]'><b>Message</b> : ${m.message}</div>;
+                    msgList.innerHTML += <div class='bg-[#131314] p-3 rounded-xl text-xs border border-[#333537] text-slate-300'><b>Message :</b> ${m.message}</div>;
                 });
             } else {
                 alert("Clé admin incorrecte !");
