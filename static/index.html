@@ -11,28 +11,27 @@
         body { font-family: 'Inter', sans-serif; }
         code, pre, .font-code { font-family: 'Fira Code', monospace; }
         @keyframes gemini-glow {
-            0%, 100% { opacity: 1; text-shadow: 0 0 20px rgba(99, 102, 241, 0.6); }
-            50% { opacity: 0.5; text-shadow: 0 0 5px rgba(99, 102, 241, 0.2); }
+            0%, 100% { opacity: 1; text-shadow: 0 0 20px rgba(99, 102, 241, 0.8); filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.5)); }
+            50% { opacity: 0.6; text-shadow: 0 0 8px rgba(99, 102, 241, 0.3); filter: drop-shadow(0 0 3px rgba(99, 102, 241, 0.2)); }
         }
         .animate-gemini-logo { animation: gemini-glow 3s ease-in-out infinite; }
         @keyframes pulse-dot {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(0.85); opacity: 0.4; }
+            0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 10px rgba(16, 185, 129, 0.8); }
+            50% { transform: scale(0.85); opacity: 0.5; box-shadow: 0 0 2px rgba(16, 185, 129, 0.2); }
         }
         .animate-dot { animation: pulse-dot 2s infinite; }
     </style>
 </head>
 <body class="bg-[#131314] text-[#e3e3e3] h-screen flex overflow-hidden relative">
 
-    <!-- Fond sombre semi-transparent quand le menu mobile est ouvert -->
-    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-20 hidden md:hidden"></div>
+    <!-- Overlay sombre pour le menu flottant -->
+    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-20 hidden backdrop-blur-xs transition-all"></div>
 
-    <!-- Sidebar (Menu latéral : fermé par défaut sur mobile avec -translate-x-full) -->
-    <aside id="sidebar" class="fixed md:static inset-y-0 left-0 w-64 bg-[#1e1f20] border-r border-[#333537] flex flex-col transition-transform duration-300 transform -translate-x-full md:translate-x-0 z-30 shadow-2xl">
+    <!-- Sidebar Flottant (Effet Tiroir Brillant) -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-[#1e1f20]/95 backdrop-blur-md border-r border-[#333537] flex flex-col transition-transform duration-300 transform -translate-x-full z-30 shadow-2xl shadow-indigo-950/50">
         <div class="p-4 flex items-center justify-between border-b border-[#333537]">
-            <span class="text-sm font-semibold tracking-wide text-indigo-400">NebulaAI Menu</span>
-            <!-- Bouton pour fermer/masquer le menu sur mobile -->
-            <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer md:hidden">
+            <span class="text-xs font-semibold uppercase tracking-wider text-indigo-400">DEV HACKERS</span>
+            <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
                 <i class="fa-solid fa-xmark text-lg"></i>
             </button>
         </div>
@@ -52,7 +51,7 @@
             </button>
         </div>
         <div class="p-4 border-t border-[#333537] text-xs text-slate-500 flex items-center justify-between">
-            <span class="font-medium text-slate-300">DEV HACKERS</span>
+            <span class="font-medium text-slate-300">NebulaAI</span>
             <span class="text-emerald-400 flex items-center"><span class="w-2 h-2 bg-emerald-500 rounded-full inline-block mr-1.5 animate-dot"></span>Online</span>
         </div>
     </aside>
@@ -62,8 +61,7 @@
         <!-- Top Navigation -->
         <header class="h-14 border-b border-[#333537] px-6 flex items-center justify-between bg-[#131314]/80 backdrop-blur">
             <div class="flex items-center space-x-4">
-                <!-- Bouton avec les 3 traits pour ouvrir le menu -->
-                <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-[#282a2c] transition-colors cursor-pointer">
+                <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-[#282a2c] transition-colors cursor-pointer shadow-sm">
                     <i class="fa-solid fa-bars text-lg"></i>
                 </button>
                 <h1 class="text-base font-medium text-slate-200">NebulaAI <span class="text-xs text-indigo-400 ml-2">DEV HACKERS</span></h1>
@@ -74,7 +72,7 @@
             </div>
         </header>
 
-        <!-- Dynamic Panels -->
+        <!-- Dynamic Panels Container -->
         <div class="flex-1 overflow-y-auto p-6 max-w-4xl w-full mx-auto space-y-6">
             
             <!-- PANEL 1 : CHAT & IA -->
@@ -91,7 +89,7 @@
                     <textarea id="userInput" rows="4" class="w-full bg-[#131314] border border-[#333537] rounded-2xl p-4 text-sm text-indigo-200 focus:outline-none focus:border-indigo-500 transition-colors resize-none" placeholder="Posez une question ou collez votre code ici..."></textarea>
                     
                     <div class="flex flex-wrap gap-2">
-                        <button onclick="sendMessage('general')" class="flex-1 bg-indigo-600/20 hover:bg-indigo-600/35 text-indigo-300 border border-indigo-500/30 font-medium py-2.5 px-3 rounded-xl transition-all text-xs flex items-center justify-center space-x-2 cursor-pointer">
+                        <button onclick="sendMessage('general')" class="flex-1 bg-indigo-600/20 hover:bg-indigo-600/35 text-indigo-300 border border-indigo-500/30 font-medium py-2.5 px-3 rounded-xl transition-all text-xs flex items-center justify-center space-x-2 cursor-pointer shadow-lg shadow-indigo-600/10">
                             <i class="fa-solid fa-paper-plane"></i>
                             <span>Envoyer la question</span>
                         </button>
@@ -124,7 +122,7 @@
                     </h2>
                     <p class="text-xs text-slate-400">Un problème, une suggestion ou un bug à remonter ? Envoyez votre message directement au créateur.</p>
                     <textarea id="contactMsg" rows="5" class="w-full bg-[#131314] border border-[#333537] rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-indigo-500 resize-none" placeholder="Votre message pour l'admin..."></textarea>
-                    <button onclick="sendContact()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 rounded-xl transition-all cursor-pointer">Envoyer le message</button>
+                    <button onclick="sendContact()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 rounded-xl transition-all cursor-pointer shadow-lg shadow-indigo-600/20">Envoyer le message</button>
                     <p id="contactFeedback" class="text-xs text-emerald-400 text-center hidden"></p>
                 </div>
             </div>
@@ -138,13 +136,13 @@
                     </h2>
                     <div class="flex space-x-3">
                         <input type="password" id="adminKeyInput" placeholder="Entrez la clé admin (ex: devhackers2026)" class="flex-1 bg-[#131314] border border-[#333537] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-red-500">
-                        <button onclick="loadAdminData()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 px-5 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer">Charger les données</button>
+                        <button onclick="loadAdminData()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 px-5 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer">Charger</button>
                     </div>
 
                     <div id="adminContent" class="space-y-6 hidden pt-4">
                         <div>
-                            <h3 class="text-sm font-bold text-slate-200 mb-3">Messages des utilisateurs :</h3>
-                            <div id="adminMessagesList" class="space-y-2 max-h-48 overflow-y-auto"></div>
+                            <h3 class="text-sm font-bold text-slate-200 mb-3">Messages reçus des utilisateurs :</h3>
+                            <div id="adminMessagesList" class="space-y-2 max-h-60 overflow-y-auto"></div>
                         </div>
                     </div>
                 </div>
@@ -166,11 +164,8 @@
             document.getElementById('panel-contact').classList.add('hidden');
             document.getElementById('panel-admin').classList.add('hidden');
             document.getElementById('panel-' + tabName).classList.remove('hidden');
-            
-            // Ferme automatiquement le menu sur téléphone après un clic
-            if(window.innerWidth < 768) {
-                toggleSidebar();
-            }
+            // Ferme le menu flottant après clic
+            toggleSidebar();
         }
 
         async function sendMessage(mode) {
@@ -178,7 +173,7 @@
             const outputBox = document.getElementById('outputBox');
 
             if (!message.trim()) {
-                outputBox.textContent = "Veuillez saisir un message.";
+                outputBox.textContent = "Veuillez saisir un message ou un code.";
                 return;
             }
 
@@ -212,7 +207,7 @@
                 body: JSON.stringify({ message })
             });
             if (res.ok) {
-                feedback.textContent = "Message envoyé avec succès à l'administrateur !";
+                feedback.textContent = "Message envoyé avec succès à DEV HACKERS !";
                 feedback.classList.remove('hidden');
                 document.getElementById('contactMsg').value = "";
             }
@@ -220,18 +215,22 @@
 
         async function loadAdminData() {
             const key = document.getElementById('adminKeyInput').value;
-            const res = await fetch(/api/admin/data?admin_key=${key});
-            if (res.ok) {
-                const data = await res.json();
-                document.getElementById('adminContent').classList.remove('hidden');
-                
-                const msgList = document.getElementById('adminMessagesList');
-                msgList.innerHTML = data.messages.length ? "" : "<p class='text-xs text-slate-500'>Aucun message pour l'instant.</p>";
-                data.messages.forEach(m => {
-                    msgList.innerHTML += <div class='bg-[#131314] p-3 rounded-xl text-xs border border-[#333537] text-slate-300'><b>Message :</b> ${m.message}</div>;
-                });
-            } else {
-                alert("Clé admin incorrecte !");
+            try {
+                const res = await fetch(/api/admin/data?admin_key=${key});
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('adminContent').classList.remove('hidden');
+                    
+                    const msgList = document.getElementById('adminMessagesList');
+                    msgList.innerHTML = data.messages.length ? "" : "<p class='text-xs text-slate-500'>Aucun message pour l'instant.</p>";
+                    data.messages.forEach(m => {
+                        msgList.innerHTML += <div class='bg-[#131314] p-3 rounded-xl text-xs border border-[#333537] text-slate-300'><b>Message :</b> ${m.message}</div>;
+                    });
+                } else {
+                    alert("Clé administrateur incorrecte ! (Utilisez devhackers2026)");
+                }
+            } catch(e) {
+                alert("Erreur de chargement des données admin.");
             }
         }
     </script>
