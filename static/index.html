@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NebulaAI — DEV NEBULA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Fira Code', monospace; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-xl shadow-2xl overflow-hidden">
+        <!-- Header -->
+        <div class="bg-slate-950 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <span class="w-3 h-3 bg-red-500 rounded-full inline-block"></span>
+                <span class="w-3 h-3 bg-yellow-500 rounded-full inline-block"></span>
+                <span class="w-3 h-3 bg-green-500 rounded-full inline-block"></span>
+                <span class="ml-2 text-sm text-indigo-400 font-bold">NebulaAI <span class="text-xs text-slate-500 font-normal">by DEV NEBULA</span></span>
+            </div>
+            <span class="text-xs text-emerald-400 bg-emerald-950/50 px-2 py-1 rounded border border-emerald-800/50">v1.0 Online</span>
+        </div>
+
+        <!-- Content -->
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">Colle ton code source ici :</label>
+                <textarea id="codeInput" rows="6" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-indigo-300 focus:outline-none focus:border-indigo-500 transition-colors" placeholder="function badCode() { return 'Aïe...'; }"></textarea>
+            </div>
+
+            <div class="flex space-x-4">
+                <button onclick="sendCode('roast')" class="flex-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-600/50 font-semibold py-2.5 rounded-lg transition-all text-sm cursor-pointer">
+                    🔥 Roaster mon code
+                </button>
+                <button onclick="sendCode('fix')" class="flex-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-600/50 font-semibold py-2.5 rounded-lg transition-all text-sm cursor-pointer">
+                    ⚡️ Optimiser & Fix
+                </button>
+            </div>
+
+            <!-- Output Section -->
+            <div class="mt-6">
+                <label class="block text-sm font-medium text-slate-300 mb-2">Résultat de NebulaAI :</label>
+                <div id="outputBox" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-sm text-slate-300 min-h-[120px] whitespace-pre-wrap">En attente de code à analyser...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function sendCode(mode) {
+            const code = document.getElementById('codeInput').value;
+            const outputBox = document.getElementById('outputBox');
+            
+            if (!code.trim()) {
+                outputBox.textContent = "Erreur : Mets du code avant de l'envoyer, petit génie !";
+                return;
+            }
+
+            outputBox.textContent = "Analyse en cours par NebulaAI...";
+
+            try {
+                const response = await fetch('/api/process', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, mode })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    outputBox.textContent = data.result;
+                } else {
+                    outputBox.textContent = "Erreur : " + data.detail;
+                }
+            } catch (err) {
+                outputBox.textContent = "Erreur réseau : " + err.message;
+            }
+        }
+    </script>
+</body>
+</html>
