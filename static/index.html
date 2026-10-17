@@ -101,7 +101,7 @@
         <!-- Dynamic Panels -->
         <div class="flex-1 overflow-y-auto p-6 max-w-4xl w-full mx-auto space-y-6">
             
-            <!-- PANEL 1 : CHAT & IA (Style Gemini avec Logo Central Clignotant) -->
+            <!-- PANEL 1 : CHAT & IA -->
             <div id="panel-chat" class="space-y-6">
                 <div class="text-center py-8 space-y-3">
                     <div class="w-20 h-20 bg-indigo-600/10 border border-indigo-500/30 rounded-3xl mx-auto flex items-center justify-center text-indigo-400 text-3xl animate-gemini-logo shadow-2xl">
@@ -153,7 +153,7 @@
                 </div>
             </div>
 
-            <!-- PANEL 3 : ESPACE ADMIN (Contrôle, Ban, Suspension, Messages) -->
+            <!-- PANEL 3 : ESPACE ADMIN -->
             <div id="panel-admin" class="hidden space-y-6">
                 <div class="bg-[#1e1f20] border border-[#333537] rounded-3xl p-6 shadow-2xl space-y-4">
                     <h2 class="text-lg font-bold text-white flex items-center space-x-2">
@@ -171,7 +171,7 @@
                             <div id="adminMessagesList" class="space-y-2 max-h-48 overflow-y-auto"></div>
                         </div>
                         <div>
-                            <h3 class="text-sm font-bold text-slate-200 mb-3">Utilisateurs inscrits & Gestion (Ban / Suspendre) :</h3>
+                            <h3 class="text-sm font-bold text-slate-200 mb-3">Utilisateurs inscrits & Gestion :</h3>
                             <div id="adminUsersList" class="space-y-2 max-h-60 overflow-y-auto"></div>
                         </div>
                     </div>
@@ -200,14 +200,14 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, phone })
             })
-            .then(res => res.json().then(data => ({ status: res.status, body: data })))
-            .then(res => {
-                if (res.status === 200) {
+            .then(async res => {
+                const data = await res.json();
+                if (res.ok) {
                     currentUser = { name, phone };
-                    document.getElementById('userBadge.textContent').textContent = name;
+                    document.getElementById('userBadge').textContent = name;
                     document.getElementById('authModal').classList.add('hidden');
                 } else {
-                    errorBox.textContent = res.body.detail || "Erreur d'accès";
+                    errorBox.textContent = data.detail || "Erreur d'accès";
                     errorBox.classList.remove('hidden');
                 }
             }).catch(err => {
@@ -282,14 +282,12 @@
                 const data = await res.json();
                 document.getElementById('adminContent').classList.remove('hidden');
                 
-                // Remplir les messages
                 const msgList = document.getElementById('adminMessagesList');
                 msgList.innerHTML = data.messages.length ? "" : "<p class='text-xs text-slate-500'>Aucun message.</p>";
                 data.messages.forEach(m => {
-                    msgList.innerHTML += <div class='bg-[#131314] p-3 rounded-xl text-xs border border-[#333537]'><b>Tél: ${m.phone}</b> : ${m.message}</div>;
+                    msgList.innerHTML += <div class='bg-[#131314] p-3 rounded-xl text-xs border border-[#333537]'><b>Tél: ${m.phone}</b> :${m.message}</div>;
                 });
 
-                // Remplir les utilisateurs
                 const userList = document.getElementById('adminUsersList');
                 userList.innerHTML = data.users.length ? "" : "<p class='text-xs text-slate-500'>Aucun utilisateur.</p>";
                 data.users.forEach(u => {
@@ -309,8 +307,10 @@
         }
 
         async function adminAction(target, action) {
-            const key = document.getElementById('adminKeyInput').value;
-            const res = await fetch(/api/admin/action?admin_key=${key}, {
+            const key = document.getElementById('adminKeyInput5`+document.getElementById('adminKeyInput').value; // sécurité
+            // Utilise simplement la valeur de l'input admin
+            const adminKeyVal = document.getElementById('adminKeyInput').value;
+            const res = await fetch(/api/admin/action?admin_key=${adminKeyVal}, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ target, action })
