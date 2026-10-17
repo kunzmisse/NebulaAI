@@ -24,14 +24,14 @@
 </head>
 <body class="bg-[#131314] text-[#e3e3e3] h-screen flex overflow-hidden relative">
 
-    <!-- Overlay sombre pour le menu flottant -->
-    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-20 hidden backdrop-blur-xs transition-all"></div>
+    <!-- Overlay sombre pour fermer le menu au clic extérieur sur mobile -->
+    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-20 hidden backdrop-blur-xs transition-all md:hidden"></div>
 
     <!-- Sidebar Flottant (Effet Tiroir Brillant) -->
-    <aside id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-[#1e1f20]/95 backdrop-blur-md border-r border-[#333537] flex flex-col transition-transform duration-300 transform -translate-x-full z-30 shadow-2xl shadow-indigo-950/50">
+    <aside id="sidebar" class="fixed md:static inset-y-0 left-0 w-64 bg-[#1e1f20]/95 backdrop-blur-md border-r border-[#333537] flex flex-col transition-transform duration-300 transform -translate-x-full md:translate-x-0 z-30 shadow-2xl shadow-indigo-950/50">
         <div class="p-4 flex items-center justify-between border-b border-[#333537]">
             <span class="text-xs font-semibold uppercase tracking-wider text-indigo-400">DEV HACKERS</span>
-            <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
+            <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer md:hidden">
                 <i class="fa-solid fa-xmark text-lg"></i>
             </button>
         </div>
@@ -156,7 +156,9 @@
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebarOverlay');
             sidebar.classList.toggle('-translate-x-full');
-            overlay.classList.toggle('hidden');
+            if (window.innerWidth < 768) {
+                overlay.classList.toggle('hidden');
+            }
         }
 
         function switchTab(tabName) {
@@ -164,8 +166,11 @@
             document.getElementById('panel-contact').classList.add('hidden');
             document.getElementById('panel-admin').classList.add('hidden');
             document.getElementById('panel-' + tabName).classList.remove('hidden');
-            // Ferme le menu flottant après clic
-            toggleSidebar();
+            
+            // Sur mobile, ferme automatiquement le menu après avoir cliqué sur un onglet
+            if (window.innerWidth < 768) {
+                toggleSidebar();
+            }
         }
 
         async function sendMessage(mode) {
@@ -189,7 +194,7 @@
                 if (response.ok) {
                     outputBox.textContent = data.result;
                 } else {
-                    outputBox.textContent = "Erreur : " + data.detail;
+                    outputBox.textContent = "Erreur : " + (data.detail || "Inconnue");
                 }
             } catch (err) {
                 outputBox.textContent = "Erreur de connexion au serveur.";
@@ -201,15 +206,19 @@
             const feedback = document.getElementById('contactFeedback');
             if (!message.trim()) return;
 
-            const res = await fetch('/api/contact', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message })
-            });
-            if (res.ok) {
-                feedback.textContent = "Message envoyé avec succès à DEV HACKERS !";
-                feedback.classList.remove('hidden');
-                document.getElementById('contactMsg').value = "";
+            try {
+                const res = await fetch('/api/contact', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                if (res.ok) {
+                    feedback.textContent = "Message envoyé avec succès à DEV HACKERS !";
+                    feedback.classList.remove('hidden');
+                    document.getElementById('contactMsg').value = "";
+                }
+            } catch(e) {
+                alert("Erreur lors de l'envoi du message.");
             }
         }
 
