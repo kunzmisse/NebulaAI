@@ -41,15 +41,13 @@ async def chat_with_gemini(req: ChatRequest):
 @app.post("/api/contact")
 async def contact_admin(req: ContactRequest):
     MESSAGES_DB.append({"message": req.message})
-    return {"status": "success", "message": "Votre message a été transmis à l'administrateur DEV HACKERS."}
+    return {"status": "success", "message": "Votre message a bien été transmis."}
 
 @app.get("/api/admin/data")
 async def get_admin_data(admin_key: str):
     if admin_key != "devhackers2026":
         raise HTTPException(status_code=403, detail="Clé administrateur invalide.")
-    return {
-        "messages": MESSAGES_DB
-    }
+    return {"messages": MESSAGES_DB}
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
