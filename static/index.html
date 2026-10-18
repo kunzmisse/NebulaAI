@@ -24,14 +24,14 @@
 </head>
 <body class="bg-[#131314] text-[#e3e3e3] h-screen flex overflow-hidden relative">
 
-    <!-- Overlay sombre pour fermer le menu au clic extérieur sur mobile -->
-    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-20 hidden backdrop-blur-xs transition-all md:hidden"></div>
+    <!-- Overlay sombre -->
+    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-20 hidden backdrop-blur-xs transition-all"></div>
 
-    <!-- Sidebar Flottant (Effet Tiroir Brillant) -->
-    <aside id="sidebar" class="fixed md:static inset-y-0 left-0 w-64 bg-[#1e1f20]/95 backdrop-blur-md border-r border-[#333537] flex flex-col transition-transform duration-300 transform -translate-x-full md:translate-x-0 z-30 shadow-2xl shadow-indigo-950/50">
+    <!-- Sidebar Flottant -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-[#1e1f20]/95 backdrop-blur-md border-r border-[#333537] flex flex-col transition-transform duration-300 transform -translate-x-full z-30 shadow-2xl shadow-indigo-950/50">
         <div class="p-4 flex items-center justify-between border-b border-[#333537]">
             <span class="text-xs font-semibold uppercase tracking-wider text-indigo-400">DEV HACKERS</span>
-            <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer md:hidden">
+            <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
                 <i class="fa-solid fa-xmark text-lg"></i>
             </button>
         </div>
@@ -89,15 +89,15 @@
                     <textarea id="userInput" rows="4" class="w-full bg-[#131314] border border-[#333537] rounded-2xl p-4 text-sm text-indigo-200 focus:outline-none focus:border-indigo-500 transition-colors resize-none" placeholder="Posez une question ou collez votre code ici..."></textarea>
                     
                     <div class="flex flex-wrap gap-2">
-                        <button onclick="sendMessage('general')" class="flex-1 bg-indigo-600/20 hover:bg-indigo-600/35 text-indigo-300 border border-indigo-500/30 font-medium py-2.5 px-3 rounded-xl transition-all text-xs flex items-center justify-center space-x-2 cursor-pointer shadow-lg shadow-indigo-600/10">
+                        <button type="button" onclick="sendMessage('general')" class="flex-1 bg-indigo-600/20 hover:bg-indigo-600/35 text-indigo-300 border border-indigo-500/30 font-medium py-2.5 px-3 rounded-xl transition-all text-xs flex items-center justify-center space-x-2 cursor-pointer shadow-lg shadow-indigo-600/10">
                             <i class="fa-solid fa-paper-plane"></i>
                             <span>Envoyer la question</span>
                         </button>
-                        <button onclick="sendMessage('roast')" class="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-medium py-2.5 px-3 rounded-xl transition-all text-xs flex items-center justify-center space-x-2 cursor-pointer">
+                        <button type="button" onclick="sendMessage('roast')" class="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-medium py-2.5 px-3 rounded-xl transition-all text-xs flex items-center justify-center space-x-2 cursor-pointer">
                             <i class="fa-solid fa-fire"></i>
                             <span>Roaster</span>
                         </button>
-                        <button onclick="sendMessage('fix')" class="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-medium py-2.5 px-3 rounded-xl transition-all text-xs flex items-center justify-center space-x-2 cursor-pointer">
+                        <button type="button" onclick="sendMessage('fix')" class="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-medium py-2.5 px-3 rounded-xl transition-all text-xs flex items-center justify-center space-x-2 cursor-pointer">
                             <i class="fa-solid fa-wand-magic-sparkles"></i>
                             <span>Fix Code</span>
                         </button>
@@ -122,7 +122,7 @@
                     </h2>
                     <p class="text-xs text-slate-400">Un problème, une suggestion ou un bug à remonter ? Envoyez votre message directement au créateur.</p>
                     <textarea id="contactMsg" rows="5" class="w-full bg-[#131314] border border-[#333537] rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-indigo-500 resize-none" placeholder="Votre message pour l'admin..."></textarea>
-                    <button onclick="sendContact()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 rounded-xl transition-all cursor-pointer shadow-lg shadow-indigo-600/20">Envoyer le message</button>
+                    <button type="button" onclick="sendContact()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 rounded-xl transition-all cursor-pointer shadow-lg shadow-indigo-600/20">Envoyer le message</button>
                     <p id="contactFeedback" class="text-xs text-emerald-400 text-center hidden"></p>
                 </div>
             </div>
@@ -136,7 +136,7 @@
                     </h2>
                     <div class="flex space-x-3">
                         <input type="password" id="adminKeyInput" placeholder="Entrez la clé admin (ex: devhackers2026)" class="flex-1 bg-[#131314] border border-[#333537] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-red-500">
-                        <button onclick="loadAdminData()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 px-5 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer">Charger</button>
+                        <button type="button" onclick="loadAdminData()" class="bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 px-5 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer">Charger</button>
                     </div>
 
                     <div id="adminContent" class="space-y-6 hidden pt-4">
@@ -152,32 +152,46 @@
     </main>
 
     <script>
+        // Test immédiat de chargement du script
+        console.log("NebulaAI Interface chargée avec succès !");
+
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebarOverlay');
+            if (!sidebar) return;
+            
             sidebar.classList.toggle('-translate-x-full');
-            if (window.innerWidth < 768) {
+            if (overlay) {
                 overlay.classList.toggle('hidden');
             }
         }
 
         function switchTab(tabName) {
-            document.getElementById('panel-chat').classList.add('hidden');
-            document.getElementById('panel-contact').classList.add('hidden');
-            document.getElementById('panel-admin').classList.add('hidden');
-            document.getElementById('panel-' + tabName).classList.remove('hidden');
+            const chatPanel = document.getElementById('panel-chat');
+            const contactPanel = document.getElementById('panel-contact');
+            const adminPanel = document.getElementById('panel-admin');
             
-            // Sur mobile, ferme automatiquement le menu après avoir cliqué sur un onglet
-            if (window.innerWidth < 768) {
-                toggleSidebar();
+            if (chatPanel) chatPanel.classList.add('hidden');
+            if (contactPanel) contactPanel.classList.add('hidden');
+            if (adminPanel) adminPanel.classList.add('hidden');
+            
+            const target = document.getElementById('panel-type' ? 'panel-' + tabName : '');
+            const activePanel = document.getElementById('panel-' + tabName);
+            if (activePanel) {
+                activePanel.classList.remove('hidden');
             }
+            
+            toggleSidebar();
         }
 
         async function sendMessage(mode) {
-            const message = document.getElementById('userInput').value;
+            const userInput = document.getElementById('userInput');
             const outputBox = document.getElementById('outputBox');
+            
+            if (!userInput || !outputBox) return;
+            const message = userInput.value;
 
-            if (!message.trim()) {
+            if (!message || !message.trim()) {
                 outputBox.textContent = "Veuillez saisir un message ou un code.";
                 return;
             }
@@ -190,32 +204,36 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message, mode })
                 });
+                
                 const data = await response.json();
                 if (response.ok) {
                     outputBox.textContent = data.result;
                 } else {
-                    outputBox.textContent = "Erreur : " + (data.detail || "Inconnue");
+                    outputBox.textContent = "Erreur serveur : " + (data.detail || "Inconnue");
                 }
             } catch (err) {
-                outputBox.textContent = "Erreur de connexion au serveur.";
+                outputBox.textContent = "Erreur de connexion réseau vers l'API.";
             }
         }
 
         async function sendContact() {
-            const message = document.getElementById('contactMsg').value;
+            const contactMsg = document.getElementById('contactMsg');
             const feedback = document.getElementById('contactFeedback');
-            if (!message.trim()) return;
+            
+            if (!contactMsg || !contactMsg.value.trim()) return;
 
             try {
                 const res = await fetch('/api/contact', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message })
+                    body: JSON.stringify({ message: contactMsg.value })
                 });
                 if (res.ok) {
-                    feedback.textContent = "Message envoyé avec succès à DEV HACKERS !";
-                    feedback.classList.remove('hidden');
-                    document.getElementById('contactMsg').value = "";
+                    if (feedback) {
+                        feedback.textContent = "Message envoyé avec succès à DEV HACKERS !";
+                        feedback.classList.remove('hidden');
+                    }
+                    contactMsg.value = "";
                 }
             } catch(e) {
                 alert("Erreur lors de l'envoi du message.");
@@ -223,18 +241,25 @@
         }
 
         async function loadAdminData() {
-            const key = document.getElementById('adminKeyInput').value;
+            const adminKeyInput = document.getElementById('adminKeyInput');
+            const adminContent = document.getElementById('adminContent');
+            const msgList = document.getElementById('adminMessagesList');
+            
+            if (!adminKeyInput) return;
+            const key = adminKeyInput.value;
+
             try {
                 const res = await fetch(/api/admin/data?admin_key=${key});
                 if (res.ok) {
                     const data = await res.json();
-                    document.getElementById('adminContent').classList.remove('hidden');
+                    if (adminContent) adminContent.classList.remove('hidden');
                     
-                    const msgList = document.getElementById('adminMessagesList');
-                    msgList.innerHTML = data.messages.length ? "" : "<p class='text-xs text-slate-500'>Aucun message pour l'instant.</p>";
-                    data.messages.forEach(m => {
-                        msgList.innerHTML += <div class='bg-[#131314] p-3 rounded-xl text-xs border border-[#333537] text-slate-300'><b>Message :</b> ${m.message}</div>;
-                    });
+                    if (msgList) {
+                        msgList.innerHTML = data.messages.length ? "" : "<p class='text-xs text-slate-500'>Aucun message pour l'instant.</p>";
+                        data.messages.forEach(m => {
+                            msgList.innerHTML += <div class='bg-[#131314] p-3 rounded-xl text-xs border border-[#333537] text-slate-300'><b>Message :</b> ${m.message}</div>;
+                        });
+                    }
                 } else {
                     alert("Clé administrateur incorrecte ! (Utilisez devhackers2026)");
                 }
