@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>NebulaAI · par DEV HACKERS</title>
+<meta name="description" content="NebulaAI, l'assistant IA de DEV HACKERS : discussion, roast et correction de code.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/main.css">
+</head>
+<body data-mode="normal">
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="logo">N</div>
+      <div><h1>NebulaAI</h1><p>Développée par DEV HACKERS</p></div>
+    </div>
+    <button class="ghost" id="clear" type="button">Nouvelle discussion</button>
+  </header>
+
+  <div class="modes" role="group" aria-label="Mode">
+    <button class="mode" data-mode="normal" aria-pressed="true" type="button">Normal<small>Discussion</small></button>
+    <button class="mode" data-mode="roast" aria-pressed="false" type="button">Roast<small>Sans pitié</small></button>
+    <button class="mode" data-mode="fix" aria-pressed="false" type="button">Fix<small>Corriger et optimiser</small></button>
+  </div>
+
+  <main id="chat" aria-live="polite"></main>
+
+  <div class="composer">
+    <div class="box">
+      <textarea id="input" rows="1" placeholder="Écris ton message…" aria-label="Message"></textarea>
+      <button id="send" type="button" aria-label="Envoyer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg>
+      </button>
+    </div>
+    <p class="hint">Entrée pour envoyer · Maj+Entrée pour un retour à la ligne</p>
+  </div>
+</div>
+
+<script>
+const chat = document.getElementById("chat");
+const input = document.getElementById("input");
+const sendBtn = document.getElementById("send");
+let mode = "normal";
+let history = [];
+let busy = false;
+
+const INTRO = {
+  normal: { t: "Comment puis-je t'aider ?", p: "Pose une question, demande une idée ou un texte : NebulaAI répond avec précision.",
+    chips: ["Explique l'informatique quantique simplement", "Rédige un message de relance pro", "Donne-moi 3 idées de side project"] },
+  roast: { t: "Prêt à te faire démonter ?", p: "Colle ton code, ton idée ou ton CV. Un dev senior cynique s'en charge.",
+    chips: ["for(var i=0;i<10;i++){ setTimeout(()=>console.log(i),0) }", "Mon app : un todo-list avec blockchain", "J'utilise jQuery en 2026"] },
+  fix: { t: "Colle ce qui doit être corrigé", p: "Code, texte ou architecture : NebulaAI corrige et optimise.",
+    chips: ["function add(a,b){ return a+b+'' }", "SELECT * FROM users WHERE id = " + "'\" + id + \"'", "Comment structurer une API REST propre ?"] },
+};
+
+const esc = s => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function render(text) {
+  return text.split(/```/).map((part, i) => {
+    if (i % 2) {
+      const code = part.replace(/^[\w+#.-]*\n/, "");
+      return `<pre><code>${esc(code.replace(/\n$/, ""))}</code></pre>`;
+    }
+    return esc(part)
+      .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+      .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/\n/g, "<br>");
+  }).join("");
+}
+
+function showEmpty() {
+  const d = INTRO[mode];
+  chat.innerHTML = `<div class="empty"><div class="logo">N</div><h2>${d.t}</h2><p>${d.p}</p><div class="chips">${
+    d.chips.map(c => `<button class="chip" type="button">${esc(c)}</button>`).join("")}</div></div>`;
+  chat.querySelectorAll(".chip").forEach(b => b.onclick = () => { input.value = b.textContent; send(); });
+}
+
+function addMessage(role, html, raw) {
+  chat.querySelector(".empty")?.remove();
+  const el = document.createElement("div");
+  el.className = "msg " + (role === "error" ? "ai error" : role);
+  el.innerHTML = `<div class="avatar">${role === "user" ? "Toi" : "N"}</div><div><div class="bubble">${html}</div></div>`;
+  if (role === "ai") {
+    const tools = document.createElement("div");
+    tools.className = "tools";
+    tools.innerHTML = `<button class="tool" type="button">Copier</button>`;
+    tools.firstChild.onclick = async e => {
+      try { await navigator.clipboard.writeText(raw); e.target.textContent = "Copié"; setTimeout(() => e.target.textContent = "Copier", 1500); } catch {}
+    };
+    el.lastChild.appendChild(tools);
+  }
+  chat.appendChild(el);
+  chat.scrollTop = chat.scrollHeight;
+  return el;
+}
+
+async function send() {
+  const message = input.value.trim();
+  if (!message || busy) return;
+  busy = true; sendBtn.disabled = true;
+  input.value = ""; autosize();
+  addMessage("user", esc(message));
+  const typing = addMessage("ai", '<span class="dots"><i></i><i></i><i></i></span>');
+  typing.querySelector(".tools")?.remove();
+
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, mode, history }),
+    });
+    const data = await res.json().catch(() => ({}));
+    typing.remove();
+    if (!res.ok) throw new Error(data.error || "Erreur du serveur.");
+    addMessage("ai", render(data.reply), data.reply);
+    history.push({ role: "user", content: message }, { role: "assistant", content: data.reply });
+    history = history.slice(-12);
+  } catch (err) {
+    typing.remove();
+    addMessage("error", esc(err.message || "Une erreur est survenue."));
+  } finally {
+    busy = false; sendBtn.disabled = false; input.focus();
+  }
+}
+
+function autosize() { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 160) + "px"; }
+
+document.querySelectorAll(".mode").forEach(b => b.onclick = () => {
+  mode = b.dataset.mode;
+  document.body.dataset.mode = mode;
+  document.querySelectorAll(".mode").forEach(x => x.setAttribute("aria-pressed", x === b));
+  if (!history.length && !chat.querySelector(".msg")) showEmpty();
+});
+document.getElementById("clear").onclick = () => { history = []; showEmpty(); };
+sendBtn.onclick = send;
+input.addEventListener("input", autosize);
+input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
+showEmpty();
+</script>
+</body>
+</html>

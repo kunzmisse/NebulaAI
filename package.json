@@ -1,0 +1,8 @@
+{
+  "name": "nebulaai",
+  "version": "1.0.0",
+  "description": "NebulaAI par DEV HACKERS",
+  "main": "index.js",
+  "scripts": { "start": "node index.js" },
+  "engines": { "node": ">=18" }
+}
