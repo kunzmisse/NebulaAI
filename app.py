@@ -7,9 +7,6 @@ from google import genai
 
 app = FastAPI(title="NebulaAI - DEV HACKERS")
 
-# Initialisation propre du client Google GenAI (récupère automatiquement la variable d'environnement GEMINI_API_KEY sur Render)
-client = genai.Client()
-
 MESSAGES_DB = []
 
 class ChatRequest(BaseModel):
@@ -22,9 +19,13 @@ class ContactRequest(BaseModel):
 @app.post("/api/chat")
 async def chat_with_gemini(req: ChatRequest):
     try:
-        if not req.message.strip():
-            raise HTTPException(status_code=400, detail="Le message est vide.")
-            
+        # Vérifie si la clé API est bien présente dans l'environnement Render
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            return {"result": "Erreur critique : La variable d'environnement 'GEMINI_API_KEY' est introuvable sur Render. Ajoute-la dans tes paramètres de déploiement."}
+
+        client = genai.Client(api_key=api_key)
+        
         clean_msg = req.message.encode('ascii', 'ignore').decode('ascii')
         
         if req.mode == "roast":
@@ -40,12 +41,10 @@ async def chat_with_gemini(req: ChatRequest):
         )
         return {"result": response.text}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"result": f"Erreur de l'API Gemini : {str(e)}"}
 
 @app.post("/api/contact")
 async def contact_admin(req: ContactRequest):
-    if not req.message.strip():
-        raise HTTPException(status_code=400, detail="Message vide.")
     MESSAGES_DB.append({"message": req.message})
     return {"status": "success", "message": "Votre message a bien été transmis."}
 
