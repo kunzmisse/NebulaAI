@@ -1,144 +1,211 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>NebulaAI · par DEV HACKERS</title>
-<meta name="description" content="NebulaAI, l'assistant IA de DEV HACKERS : discussion, roast et correction de code.">
+<title>NebulaAI — DEV HACKERS</title>
+<meta name="theme-color" content="#131314">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="/main.css">
 </head>
-<body data-mode="normal">
-<div class="app">
+<body>
+<div id="overlay" class="hidden"></div>
+
+<aside id="sidebar">
+  <div class="side-top">
+    <div class="logo"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+    <div><b>NebulaAI</b><small>par DEV HACKERS</small></div>
+    <button class="close" type="button" id="closeMenu" aria-label="Fermer le menu"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <nav>
+    <button class="nav active" type="button" data-tab="chat"><i class="fa-solid fa-comments"></i>Discussion et IA</button>
+    <button class="nav" type="button" data-tab="contact"><i class="fa-solid fa-envelope"></i>Contacter l'admin</button>
+    <button class="nav" type="button" data-tab="admin"><i class="fa-solid fa-shield-halved"></i>Espace admin</button>
+  </nav>
+  <div class="side-foot"><span>Nouvelle discussion</span><button class="btn danger" type="button" id="clear" style="padding:6px 10px" aria-label="Effacer la discussion"><i class="fa-solid fa-rotate-right"></i></button></div>
+</aside>
+
+<main>
   <header>
-    <div class="brand">
-      <div class="logo">N</div>
-      <div><h1>NebulaAI</h1><p>Développée par DEV HACKERS</p></div>
-    </div>
-    <button class="ghost" id="clear" type="button">Nouvelle discussion</button>
+    <button class="burger" type="button" id="openMenu" aria-label="Ouvrir le menu"><i class="fa-solid fa-bars"></i></button>
+    <h1>NebulaAI<span>DEV HACKERS</span></h1>
+    <div class="status"><span class="dot"></span><span>Système actif</span></div>
   </header>
 
-  <div class="modes" role="group" aria-label="Mode">
-    <button class="mode" data-mode="normal" aria-pressed="true" type="button">Normal<small>Discussion</small></button>
-    <button class="mode" data-mode="roast" aria-pressed="false" type="button">Roast<small>Sans pitié</small></button>
-    <button class="mode" data-mode="fix" aria-pressed="false" type="button">Fix<small>Corriger et optimiser</small></button>
-  </div>
-
-  <main id="chat" aria-live="polite"></main>
-
-  <div class="composer">
-    <div class="box">
-      <textarea id="input" rows="1" placeholder="Écris ton message…" aria-label="Message"></textarea>
-      <button id="send" type="button" aria-label="Envoyer">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg>
-      </button>
+  <!-- Discussion -->
+  <section id="panel-chat" class="panel">
+    <div id="thread" aria-live="polite"></div>
+    <div class="composer">
+      <div class="card">
+        <textarea id="userInput" rows="1" placeholder="Pose une question ou colle ton code ici…" aria-label="Message"></textarea>
+        <div class="actions">
+          <button class="btn send" type="button" data-mode="normal"><i class="fa-solid fa-paper-plane"></i>Envoyer</button>
+          <button class="btn roast" type="button" data-mode="roast"><i class="fa-solid fa-fire"></i>Roaster</button>
+          <button class="btn fix" type="button" data-mode="fix"><i class="fa-solid fa-wand-magic-sparkles"></i>Fix code</button>
+        </div>
+      </div>
+      <p class="note">Entrée pour envoyer · Maj+Entrée pour un retour à la ligne</p>
     </div>
-    <p class="hint">Entrée pour envoyer · Maj+Entrée pour un retour à la ligne</p>
-  </div>
-</div>
+  </section>
+
+  <!-- Contact -->
+  <section id="panel-contact" class="panel page hidden">
+    <div class="box">
+      <h2><i class="fa-solid fa-headset"></i>Contacter l'administrateur</h2>
+      <p>Un bug, une suggestion ou un problème ? Ton message arrive directement chez DEV HACKERS.</p>
+      <textarea id="contactMsg" class="field" rows="5" maxlength="1000" placeholder="Ton message…"></textarea>
+      <button class="btn solid" type="button" id="contactSend">Envoyer le message</button>
+      <p id="contactFb" class="feedback hidden"></p>
+    </div>
+  </section>
+
+  <!-- Admin -->
+  <section id="panel-admin" class="panel page hidden">
+    <div class="box adm">
+      <h2><i class="fa-solid fa-shield-halved"></i>Console administrateur</h2>
+      <div class="row">
+        <input id="adminKey" class="field" type="password" placeholder="Clé administrateur" autocomplete="off">
+        <button class="btn danger" type="button" id="adminLoad" style="padding:12px 20px">Charger</button>
+      </div>
+      <p id="adminFb" class="feedback hidden"></p>
+      <div id="list"></div>
+    </div>
+  </section>
+</main>
 
 <script>
-const chat = document.getElementById("chat");
-const input = document.getElementById("input");
-const sendBtn = document.getElementById("send");
-let mode = "normal";
-let history = [];
-let busy = false;
+const $ = id => document.getElementById(id);
+const thread = $("thread"), input = $("userInput");
+const LABEL = { roast: "Roast", fix: "Fix" };
+let history = [], busy = false;
 
-const INTRO = {
-  normal: { t: "Comment puis-je t'aider ?", p: "Pose une question, demande une idée ou un texte : NebulaAI répond avec précision.",
-    chips: ["Explique l'informatique quantique simplement", "Rédige un message de relance pro", "Donne-moi 3 idées de side project"] },
-  roast: { t: "Prêt à te faire démonter ?", p: "Colle ton code, ton idée ou ton CV. Un dev senior cynique s'en charge.",
-    chips: ["for(var i=0;i<10;i++){ setTimeout(()=>console.log(i),0) }", "Mon app : un todo-list avec blockchain", "J'utilise jQuery en 2026"] },
-  fix: { t: "Colle ce qui doit être corrigé", p: "Code, texte ou architecture : NebulaAI corrige et optimise.",
-    chips: ["function add(a,b){ return a+b+'' }", "SELECT * FROM users WHERE id = " + "'\" + id + \"'", "Comment structurer une API REST propre ?"] },
-};
+/* Navigation */
+const sidebar = $("sidebar"), overlay = $("overlay");
+const menu = open => { sidebar.classList.toggle("open", open); overlay.classList.toggle("hidden", !open); };
+$("openMenu").onclick = () => menu(true);
+$("closeMenu").onclick = overlay.onclick = () => menu(false);
+document.querySelectorAll(".nav").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".nav").forEach(n => n.classList.toggle("active", n === b));
+  ["chat", "contact", "admin"].forEach(t => $("panel-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+  menu(false);
+});
 
+/* Rendu des réponses (échappement HTML + blocs de code) */
 const esc = s => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-
 function render(text) {
   return text.split(/```/).map((part, i) => {
     if (i % 2) {
-      const code = part.replace(/^[\w+#.-]*\n/, "");
-      return `<pre><code>${esc(code.replace(/\n$/, ""))}</code></pre>`;
+      const m = part.match(/^([\w+#.-]*)\n/);
+      const lang = m ? m[1] : "";
+      const code = part.replace(/^[\w+#.-]*\n/, "").replace(/\n$/, "");
+      return `<pre><div class="pre-head"><span>${esc(lang || "code")}</span><button type="button" data-copy>Copier</button></div><code>${esc(code)}</code></pre>`;
     }
-    return esc(part)
-      .replace(/`([^`\n]+)`/g, "<code>$1</code>")
-      .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
-      .replace(/\n/g, "<br>");
+    return esc(part).replace(/`([^`\n]+)`/g, "<code>$1</code>").replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>").replace(/\n/g, "<br>");
   }).join("");
 }
+const copy = async (text, btn, label) => {
+  try { await navigator.clipboard.writeText(text); btn.textContent = "Copié"; setTimeout(() => btn.textContent = label, 1500); } catch {}
+};
 
-function showEmpty() {
-  const d = INTRO[mode];
-  chat.innerHTML = `<div class="empty"><div class="logo">N</div><h2>${d.t}</h2><p>${d.p}</p><div class="chips">${
-    d.chips.map(c => `<button class="chip" type="button">${esc(c)}</button>`).join("")}</div></div>`;
-  chat.querySelectorAll(".chip").forEach(b => b.onclick = () => { input.value = b.textContent; send(); });
+function hero() {
+  thread.innerHTML = `<div class="hero"><div class="orb"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+    <h2>Bonjour, comment puis-je t'aider ?</h2>
+    <p>Pose tes questions, discute de tout ou fais analyser ton code par l'IA.</p></div>`;
 }
 
-function addMessage(role, html, raw) {
-  chat.querySelector(".empty")?.remove();
+function add(role, html, { raw = "", mode = "" } = {}) {
+  thread.querySelector(".hero")?.remove();
   const el = document.createElement("div");
   el.className = "msg " + (role === "error" ? "ai error" : role);
-  el.innerHTML = `<div class="avatar">${role === "user" ? "Toi" : "N"}</div><div><div class="bubble">${html}</div></div>`;
-  if (role === "ai") {
-    const tools = document.createElement("div");
-    tools.className = "tools";
-    tools.innerHTML = `<button class="tool" type="button">Copier</button>`;
-    tools.firstChild.onclick = async e => {
-      try { await navigator.clipboard.writeText(raw); e.target.textContent = "Copié"; setTimeout(() => e.target.textContent = "Copier", 1500); } catch {}
-    };
-    el.lastChild.appendChild(tools);
+  const tag = mode && mode !== "normal" ? `<span class="tag ${mode}">${LABEL[mode]}</span><br>` : "";
+  el.innerHTML = role === "user"
+    ? `<div class="body">${tag}${html}</div>`
+    : `<div class="ava"><i class="fa-solid fa-wand-magic-sparkles"></i></div><div class="body">${html}</div>`;
+  if (role === "ai" && raw) {
+    const b = document.createElement("button");
+    b.className = "copy"; b.type = "button"; b.textContent = "Copier la réponse";
+    b.onclick = () => copy(raw, b, "Copier la réponse");
+    el.querySelector(".body").appendChild(b);
   }
-  chat.appendChild(el);
-  chat.scrollTop = chat.scrollHeight;
+  el.querySelectorAll("[data-copy]").forEach(b => b.onclick = () => copy(b.closest("pre").querySelector("code").textContent, b, "Copier"));
+  thread.appendChild(el);
+  thread.scrollTop = thread.scrollHeight;
   return el;
 }
 
-async function send() {
+async function sendMessage(mode) {
   const message = input.value.trim();
   if (!message || busy) return;
-  busy = true; sendBtn.disabled = true;
-  input.value = ""; autosize();
-  addMessage("user", esc(message));
-  const typing = addMessage("ai", '<span class="dots"><i></i><i></i><i></i></span>');
-  typing.querySelector(".tools")?.remove();
-
+  busy = true;
+  document.querySelectorAll(".actions .btn").forEach(b => b.disabled = true);
+  input.value = ""; grow();
+  add("user", esc(message).replace(/\n/g, "<br>"), { mode });
+  const wait = add("ai", '<span class="dots"><i></i><i></i><i></i></span>');
   try {
     const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message, mode, history }),
     });
     const data = await res.json().catch(() => ({}));
-    typing.remove();
+    wait.remove();
     if (!res.ok) throw new Error(data.error || "Erreur du serveur.");
-    addMessage("ai", render(data.reply), data.reply);
+    add("ai", render(data.reply), { raw: data.reply });
     history.push({ role: "user", content: message }, { role: "assistant", content: data.reply });
     history = history.slice(-12);
-  } catch (err) {
-    typing.remove();
-    addMessage("error", esc(err.message || "Une erreur est survenue."));
+  } catch (e) {
+    wait.remove();
+    add("error", esc(e.message || "Erreur de connexion au serveur."));
   } finally {
-    busy = false; sendBtn.disabled = false; input.focus();
+    busy = false;
+    document.querySelectorAll(".actions .btn").forEach(b => b.disabled = false);
+    input.focus();
   }
 }
 
-function autosize() { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 160) + "px"; }
+function grow() { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 180) + "px"; }
+input.addEventListener("input", grow);
+input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage("normal"); } });
+document.querySelectorAll(".actions .btn").forEach(b => b.onclick = () => sendMessage(b.dataset.mode));
+$("clear").onclick = () => { history = []; hero(); menu(false); };
 
-document.querySelectorAll(".mode").forEach(b => b.onclick = () => {
-  mode = b.dataset.mode;
-  document.body.dataset.mode = mode;
-  document.querySelectorAll(".mode").forEach(x => x.setAttribute("aria-pressed", x === b));
-  if (!history.length && !chat.querySelector(".msg")) showEmpty();
-});
-document.getElementById("clear").onclick = () => { history = []; showEmpty(); };
-sendBtn.onclick = send;
-input.addEventListener("input", autosize);
-input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
-showEmpty();
+/* Contact */
+function feedback(el, text, ok) { el.textContent = text; el.className = "feedback " + (ok ? "ok" : "ko"); }
+$("contactSend").onclick = async () => {
+  const msg = $("contactMsg").value.trim(), fb = $("contactFb");
+  if (!msg) return feedback(fb, "Écris un message avant d'envoyer.", false);
+  try {
+    const res = await fetch("/api/contact", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: msg }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Échec de l'envoi.");
+    $("contactMsg").value = "";
+    feedback(fb, "Message envoyé à DEV HACKERS.", true);
+  } catch (e) { feedback(fb, e.message, false); }
+};
+
+/* Admin (rendu en texte : aucun HTML injecté) */
+$("adminLoad").onclick = async () => {
+  const fb = $("adminFb"), list = $("list");
+  try {
+    const res = await fetch("/api/admin/data", { headers: { "x-admin-key": $("adminKey").value } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Accès refusé.");
+    list.replaceChildren();
+    fb.className = "feedback hidden";
+    if (!data.messages.length) return feedback(fb, "Aucun message pour l'instant.", true);
+    data.messages.forEach(m => {
+      const d = document.createElement("div"); d.className = "mail";
+      const t = document.createElement("time");
+      t.textContent = m.date ? new Date(m.date).toLocaleString("fr-FR") : "";
+      d.append(t, document.createTextNode(m.message));
+      list.appendChild(d);
+    });
+  } catch (e) { list.replaceChildren(); feedback(fb, e.message, false); }
+};
+
+hero();
 </script>
 </body>
 </html>

@@ -2,8 +2,8 @@ const fs = require("fs");
 const path = require("path");
 
 const API_URL = "https://ia.togehost.online/api/chat?message=";
-const MAX_MESSAGE = 1500;
-const MAX_TOTAL = 3200;
+const MAX_MESSAGE = 1500;   // caractères max pour le message utilisateur
+const MAX_TOTAL = 3200;     // taille max du texte brut envoyé à l'API (limite d'URL)
 const TIMEOUT_MS = 45000;
 
 const PROMPTS = {
@@ -21,15 +21,17 @@ const STATIC = {
   "/main.css": ["main.css", "text/css; charset=utf-8"],
 };
 
+/** Extrait uniquement le texte utile du champ `result` renvoyé par l'API. */
 function extractResult(raw) {
   let data;
   try {
     data = JSON.parse(raw);
   } catch {
-    return String(raw || "").trim();
+    return String(raw || "").trim(); // réponse déjà en texte brut
   }
   let value = data && typeof data === "object" && "result" in data ? data.result : data;
   if (typeof value === "string") {
+    // Parfois le résultat est lui-même un JSON sérialisé
     const t = value.trim();
     if (t.startsWith("{") && t.endsWith("}")) {
       try {
@@ -47,6 +49,7 @@ function extractResult(raw) {
   return "";
 }
 
+/** Construit le prompt complet : consigne du mode + contexte récent + message. */
 function buildPrompt(mode, message, history) {
   const system = PROMPTS[mode];
   const head = `${system}\n\n`;
@@ -96,31 +99,87 @@ async function handleChat(req, res) {
     return send(res, 400, { error: "Requête invalide." });
   }
 
-  const mode = Object.prototype.hasOwnProperty.call(PROMPTS, payload.mode) ? payload.mode : "normal";
+  const mode = Object.prototype.hasOwnProperty.call(PROMPTS, payload.mode) ? payload.mode : "normal"; // "general" → normal
   const message = String(payload.message || "").trim().slice(0, MAX_MESSAGE);
   if (!message) return send(res, 400, { error: "Le message est vide." });
 
-  const prompt = buildPrompt(mode, message, payload.history);
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  const attempts = [
+    buildPrompt(mode, message, payload.history),
+    // Variante compacte : une seule ligne, sans historique
+    `${PROMPTS[mode]} Requête de l'utilisateur : ${message.replace(/\s+/g, " ")}`,
+  ];
+  let lastError = "L'API n'a renvoyé aucune réponse exploitable.";
 
+  for (const prompt of attempts) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    try {
+      const upstream = await fetch(API_URL + encodeURIComponent(prompt), {
+        headers: { Accept: "application/json" },
+        signal: ctrl.signal,
+      });
+      const raw = await upstream.text();
+      if (!upstream.ok) { lastError = `L'API a répondu avec le code ${upstream.status}.`; continue; }
+      const reply = extractResult(raw);
+      if (!reply) continue;
+      if (/^error\b/i.test(reply)) { lastError = `L'API externe a renvoyé une erreur : « ${reply.slice(0, 120)} ». Réessaie dans un instant.`; continue; }
+      return send(res, 200, { reply, mode });
+    } catch (err) {
+      lastError = err && err.name === "AbortError" ? "L'API a mis trop de temps à répondre." : "Impossible de joindre l'API.";
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  return send(res, 502, { error: lastError });
+}
+
+
+// ---------- Messages à l'admin (stockés dans Upstash Redis / Vercel KV) ----------
+const KV_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+const KV_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+const LIST_KEY = "nebulaai:messages";
+
+async function kv(command) {
+  const r = await fetch(KV_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${KV_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify(command),
+  });
+  if (!r.ok) throw new Error("kv_error");
+  return (await r.json()).result;
+}
+
+async function handleContact(req, res) {
+  if (req.method !== "POST") return send(res, 405, { error: "Méthode non autorisée." });
+  if (!KV_URL || !KV_TOKEN)
+    return send(res, 503, { error: "Stockage non configuré : ajoute une base Upstash Redis dans Vercel." });
+  let payload;
+  try { payload = JSON.parse(await readBody(req)); } catch { return send(res, 400, { error: "Requête invalide." }); }
+  const message = String(payload.message || "").trim().slice(0, 1000);
+  if (!message) return send(res, 400, { error: "Le message est vide." });
   try {
-    const upstream = await fetch(API_URL + encodeURIComponent(prompt), {
-      headers: { Accept: "application/json" },
-      signal: ctrl.signal,
-    });
-    const raw = await upstream.text();
-    if (!upstream.ok) return send(res, 502, { error: `L'API a répondu avec le code ${upstream.status}.` });
-    const reply = extractResult(raw);
-    if (!reply) return send(res, 502, { error: "L'API n'a renvoyé aucune réponse exploitable." });
-    return send(res, 200, { reply, mode });
-  } catch (err) {
-    const timeout = err && err.name === "AbortError";
-    return send(res, timeout ? 504 : 502, {
-      error: timeout ? "L'API a mis trop de temps à répondre." : "Impossible de joindre l'API.",
-    });
-  } finally {
-    clearTimeout(timer);
+    await kv(["LPUSH", LIST_KEY, JSON.stringify({ message, date: new Date().toISOString() })]);
+    await kv(["LTRIM", LIST_KEY, 0, 199]);
+    return send(res, 200, { ok: true });
+  } catch {
+    return send(res, 502, { error: "Impossible d'enregistrer le message." });
+  }
+}
+
+async function handleAdmin(req, res) {
+  const expected = process.env.ADMIN_KEY;
+  if (!expected) return send(res, 503, { error: "ADMIN_KEY n'est pas défini dans les variables Vercel." });
+  const given = String(req.headers["x-admin-key"] || "");
+  const a = Buffer.from(given), b = Buffer.from(expected);
+  if (a.length !== b.length || !require("crypto").timingSafeEqual(a, b))
+    return send(res, 401, { error: "Clé administrateur incorrecte." });
+  if (!KV_URL || !KV_TOKEN) return send(res, 503, { error: "Stockage non configuré." });
+  try {
+    const rows = await kv(["LRANGE", LIST_KEY, 0, 99]);
+    const messages = rows.map((r) => { try { return JSON.parse(r); } catch { return { message: String(r) }; } });
+    return send(res, 200, { messages });
+  } catch {
+    return send(res, 502, { error: "Impossible de lire les messages." });
   }
 }
 
@@ -128,6 +187,8 @@ module.exports = async (req, res) => {
   const pathname = new URL(req.url, "http://localhost").pathname;
 
   if (pathname === "/api/chat") return handleChat(req, res);
+  if (pathname === "/api/contact") return handleContact(req, res);
+  if (pathname === "/api/admin/data") return handleAdmin(req, res);
 
   const entry = STATIC[pathname];
   if (entry && (req.method === "GET" || req.method === "HEAD")) {
@@ -144,6 +205,7 @@ module.exports = async (req, res) => {
   return send(res, 404, "Page introuvable.", "text/plain; charset=utf-8");
 };
 
+// Serveur local : `node index.js` (http://localhost:3000)
 if (require.main === module) {
   const port = process.env.PORT || 3000;
   require("http").createServer(module.exports).listen(port, () =>
