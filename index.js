@@ -30,92 +30,92 @@ const STATIC = {
 //  BASE DE DONNÉES JSON
 //  - GitHub (persistant) : dépôt et token en dur ci-dessus (modifiables via variables Vercel)
 //  - fichiers JSON locaux uniquement si la variable DISABLE_GITHUB=1 est définie
-//  Organisation :  users/<id>.json · conversations/<id>.json · contact.json
+//  UN SEUL fichier : db.json = { users, conversations, contact }
 // =====================================================================
 const GH = {
   token: process.env.GITHUB_TOKEN || "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",
   owner: process.env.GITHUB_OWNER || "toge021",
   repo: process.env.GITHUB_REPO || "script-ban",
   branch: process.env.GITHUB_BRANCH || "main",
-  dir: process.env.GITHUB_DATA_DIR || "nebulaai-data", // dossier créé automatiquement dans le dépôt
+  dir: process.env.GITHUB_DATA_DIR || "nebulaai-data",
 };
+const DB_FILE = "db.json"; // UN SEUL fichier : nebulaai-data/db.json (créé automatiquement)
 const useGH = !process.env.DISABLE_GITHUB && !!(GH.token && GH.owner && GH.repo);
-const STORAGE_KIND = useGH ? "github" : process.env.VERCEL ? "temporaire" : "local";
+const FILE_KIND = process.env.VERCEL ? "temporaire" : "local";
 const DATA_DIR = process.env.DATA_DIR ||
   (process.env.VERCEL ? path.join(os.tmpdir(), "nebulaai-data") : path.join(__dirname, "data"));
+
+const emptyDb = () => ({ users: {}, conversations: {}, contact: [] });
+const normalize = (d) => ({ users: d?.users || {}, conversations: d?.conversations || {}, contact: d?.contact || [] });
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const ghHeaders = () => ({ Authorization: `token ${GH.token}`, Accept: "application/vnd.github.v3+json", "User-Agent": "NebulaAI", "Content-Type": "application/json" });
 
 async function ghFetch(method, p, body) {
   const url = `https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${GH.dir}/${p}` +
     (method === "GET" ? `?ref=${encodeURIComponent(GH.branch)}` : "");
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 15000);
-  try {
-    return await fetch(url, {
-      method, signal: ctrl.signal,
-      headers: { Authorization: `token ${GH.token}`, Accept: "application/vnd.github.v3+json",
-        "User-Agent": "NebulaAI", "Content-Type": "application/json" },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  } finally { clearTimeout(t); }
+  const t = setTimeout(() => ctrl.abort(), 20000);
+  try { return await fetch(url, { method, signal: ctrl.signal, headers: ghHeaders(), body: body ? JSON.stringify(body) : undefined }); }
+  finally { clearTimeout(t); }
 }
-async function ghGet(p) {
-  const r = await ghFetch("GET", p);
-  if (r.status === 404) return { data: null, sha: null };
-  if (!r.ok) throw new Error(`GitHub ${r.status}`);
+const ghErr = (status) => Object.assign(new Error(`GitHub ${status}`), { auth: status === 401 || status === 403 });
+
+/** Lit db.json sur GitHub (absent → base vide, le fichier sera créé à la première écriture). */
+async function ghLoad() {
+  const r = await ghFetch("GET", DB_FILE);
+  if (r.status === 404) return { data: emptyDb(), sha: null };
+  if (!r.ok) throw ghErr(r.status);
   const j = await r.json();
-  return { data: JSON.parse(Buffer.from(j.content, "base64").toString("utf8")), sha: j.sha };
-}
-async function ghPut(p, obj, msg) {
-  for (let i = 0; i < 3; i++) {
-    const { sha } = await ghGet(p);
-    const body = { message: msg, branch: GH.branch, content: Buffer.from(JSON.stringify(obj, null, 1)).toString("base64") };
-    if (sha) body.sha = sha;
-    const r = await ghFetch("PUT", p, body);
-    if (r.ok) return;
-    if (r.status !== 409 && r.status !== 422) throw new Error(`GitHub ${r.status}`);
+  let b64 = j.content;
+  if (!b64) { // fichier > 1 Mo : lecture via l'API Git Blobs
+    const b = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/git/blobs/${j.sha}`, { headers: ghHeaders() });
+    if (!b.ok) throw ghErr(b.status);
+    b64 = (await b.json()).content;
   }
-  throw new Error("GitHub conflit");
-}
-async function ghDel(p) {
-  const { sha } = await ghGet(p);
-  if (!sha) return;
-  const r = await ghFetch("DELETE", p, { message: `delete ${p}`, branch: GH.branch, sha });
-  if (!r.ok && r.status !== 404) throw new Error(`GitHub ${r.status}`);
+  return { data: normalize(JSON.parse(Buffer.from(b64, "base64").toString("utf8"))), sha: j.sha };
 }
 
-const locks = new Map();
-function withLock(key, fn) {
-  const run = (locks.get(key) || Promise.resolve()).catch(() => {}).then(fn);
-  locks.set(key, run);
-  run.finally(() => { if (locks.get(key) === run) locks.delete(key); }).catch(() => {});
-  return run;
+/** Lecture → modification → écriture avec contrôle de version (SHA) : en cas de conflit, on relit et on réapplique. */
+async function ghMutate(fn) {
+  for (let i = 0; i < 6; i++) {
+    const { data, sha } = await ghLoad();
+    const result = await fn(data);
+    const body = { message: "NebulaAI: mise à jour db.json", branch: GH.branch, content: Buffer.from(JSON.stringify(data)).toString("base64") };
+    if (sha) body.sha = sha;
+    const r = await ghFetch("PUT", DB_FILE, body);
+    if (r.ok) return result;
+    if (r.status !== 409 && r.status !== 422) throw ghErr(r.status);
+    await sleep(200 * (i + 1));
+  }
+  throw new Error("GitHub : conflit d'écriture persistant");
 }
 
+let ghOn = useGH;          // passe à false si GitHub refuse le token (401/403)
+let ghReason = "";
+function fileLoad() { try { return normalize(JSON.parse(fs.readFileSync(path.join(DATA_DIR, DB_FILE), "utf8"))); } catch { return emptyDb(); } }
+function fileSave(d) {
+  const file = path.join(DATA_DIR, DB_FILE);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = file + "." + process.pid + ".tmp";
+  fs.writeFileSync(tmp, JSON.stringify(d, null, 1));
+  fs.renameSync(tmp, file);
+}
+async function viaGH(ghFn, fileFn) {
+  if (ghOn) {
+    try { return await ghFn(); }
+    catch (e) { if (!e.auth) throw e; ghOn = false; ghReason = "token GitHub refusé (" + e.message + ")"; console.error(ghReason); }
+  }
+  return fileFn();
+}
+
+let chain = Promise.resolve();
 const db = {
-  async read(p) {
-    if (useGH) return (await ghGet(p)).data;
-    try { return JSON.parse(fs.readFileSync(path.join(DATA_DIR, p), "utf8")); } catch { return null; }
-  },
-  async write(p, obj) {
-    if (useGH) return ghPut(p, obj, `update ${p}`);
-    const file = path.join(DATA_DIR, p);
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    const tmp = file + "." + process.pid + ".tmp";
-    fs.writeFileSync(tmp, JSON.stringify(obj, null, 1));
-    fs.renameSync(tmp, file);
-  },
-  async remove(p) {
-    if (useGH) return ghDel(p);
-    try { fs.unlinkSync(path.join(DATA_DIR, p)); } catch {}
-  },
-  /** Lecture → modification → écriture, sérialisée par fichier. */
-  update(p, fn, init) {
-    return withLock(p, async () => {
-      const cur = (await db.read(p)) || init();
-      const next = (await fn(cur)) || cur;
-      await db.write(p, next);
-      return next;
-    });
+  load: () => viaGH(async () => (await ghLoad()).data, async () => fileLoad()),
+  /** Modifie la base : fn reçoit l'objet complet, le modifie, et son retour est renvoyé. */
+  mutate(fn) {
+    const run = chain.catch(() => {}).then(() => viaGH(() => ghMutate(fn), async () => { const d = fileLoad(); const r = await fn(d); fileSave(d); return r; }));
+    chain = run;
+    return run;
   },
 };
 
@@ -125,25 +125,25 @@ const db = {
 const ID_USER = /^u_[a-f0-9]{16}$/, ID_CONV = /^c_[a-f0-9]{16}$/;
 const newId = (prefix) => prefix + "_" + crypto.randomBytes(8).toString("hex");
 const sha = (s) => crypto.createHash("sha256").update(s).digest();
-const userPath = (id) => `users/${id}.json`;
-const convPath = (id) => `conversations/${id}.json`;
+const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 
 async function createUser(res) {
   const id = newId("u"), token = crypto.randomBytes(24).toString("base64url");
-  await db.write(userPath(id), {
-    id, tokenHash: sha(token).toString("hex"), createdAt: new Date().toISOString(),
-    memory: { facts: {}, notes: [] }, conversations: [],
+  await db.mutate((d) => {
+    d.users[id] = { id, tokenHash: sha(token).toString("hex"), createdAt: new Date().toISOString(), memory: { facts: {}, notes: [] }, conversations: [] };
   });
   return send(res, 200, { userId: id, token });
 }
 
+/** Renvoie { user, data } (data = snapshot de la base) ou null. */
 async function auth(req) {
   const m = String(req.headers.authorization || "").match(/^Bearer (u_[a-f0-9]{16})\.([\w-]{20,})$/);
   if (!m) return null;
-  const user = await db.read(userPath(m[1]));
+  const data = await db.load();
+  const user = own(data.users, m[1]) ? data.users[m[1]] : null;
   if (!user) return null;
   const a = sha(m[2]), b = Buffer.from(user.tokenHash, "hex");
-  return a.length === b.length && crypto.timingSafeEqual(a, b) ? user : null;
+  return a.length === b.length && crypto.timingSafeEqual(a, b) ? { user, data } : null;
 }
 
 // =====================================================================
@@ -248,7 +248,7 @@ function send(res, status, body, type = "application/json; charset=utf-8") {
   res.end(typeof body === "string" || Buffer.isBuffer(body) ? body : JSON.stringify(body));
 }
 
-async function handleChat(req, res, user) {
+async function handleChat(req, res, user, data) {
   const payload = await readJSON(req);
   if (!payload) return send(res, 400, { error: "Requête invalide." });
   const mode = Object.prototype.hasOwnProperty.call(PROMPTS, payload.mode) ? payload.mode : "normal";
@@ -256,65 +256,62 @@ async function handleChat(req, res, user) {
   while (encLen(message) > 4000) message = message.slice(0, -100);
   if (!message) return send(res, 400, { error: "Le message est vide." });
 
-  let conv = null;
-  if (payload.conversationId) {
-    if (!ID_CONV.test(payload.conversationId) || !user.conversations.some((c) => c.id === payload.conversationId))
+  let convId = payload.conversationId, conv = null;
+  if (convId) {
+    if (!ID_CONV.test(convId) || !own(data.conversations, convId) || data.conversations[convId].userId !== user.id)
       return send(res, 404, { error: "Conversation introuvable." });
-    conv = await db.read(convPath(payload.conversationId));
+    conv = data.conversations[convId];
+  } else {
+    convId = newId("c");
   }
-  if (!conv) {
-    conv = { id: newId("c"), userId: user.id, title: flat(message, 48), createdAt: new Date().toISOString(), summary: "", messages: [] };
-  }
-
+  const context = conv || { messages: [], summary: "" };
   const memory = learn(user.memory, message);
-  const full = buildPrompt(mode, message, conv, memory);
-  const compact = `${PROMPTS[mode]} Requête de l'utilisateur : ${flat(message, MAX_MESSAGE)}`;
-  const out = await askAI([full, compact]);
+  const out = await askAI([
+    buildPrompt(mode, message, context, memory),
+    `${PROMPTS[mode]} Requête de l'utilisateur : ${flat(message, MAX_MESSAGE)}`,
+  ]);
   if (out.error) return send(res, 502, { error: out.error });
 
   const now = new Date().toISOString();
-  conv.messages.push({ role: "user", content: message, mode, at: now }, { role: "assistant", content: out.reply, mode, at: now });
-  if (conv.messages.length > MAX_MSGS) conv.messages = conv.messages.slice(-MAX_MSGS);
-  conv.summary = summarize(conv.messages.slice(0, -WINDOW));
-  conv.updatedAt = now;
-  await db.write(convPath(conv.id), conv);
-
-  let dropped = [];
-  await db.update(userPath(user.id), (u) => {
-    u.memory = memory;
+  const title = await db.mutate((d) => {
+    const u = d.users[user.id];
+    let c = d.conversations[convId];
+    if (!c) c = d.conversations[convId] = { id: convId, userId: user.id, title: flat(message, 48), createdAt: now, summary: "", messages: [] };
+    c.messages.push({ role: "user", content: message, mode, at: now }, { role: "assistant", content: out.reply, mode, at: now });
+    if (c.messages.length > MAX_MSGS) c.messages = c.messages.slice(-MAX_MSGS);
+    c.summary = summarize(c.messages.slice(0, -WINDOW));
+    c.updatedAt = now;
+    u.memory = learn(u.memory, message);
     u.lastSeen = now;
-    u.conversations = u.conversations.filter((c) => c.id !== conv.id);
-    u.conversations.unshift({ id: conv.id, title: conv.title, updatedAt: now, count: conv.messages.length });
-    dropped = u.conversations.splice(MAX_CONVS);
+    u.conversations = u.conversations.filter((x) => x.id !== convId);
+    u.conversations.unshift({ id: convId, title: c.title, updatedAt: now, count: c.messages.length });
+    for (const old of u.conversations.splice(MAX_CONVS)) delete d.conversations[old.id];
+    return c.title;
   });
-  for (const d of dropped) await db.remove(convPath(d.id));
-  return send(res, 200, { reply: out.reply, mode, conversationId: conv.id, title: conv.title });
+  return send(res, 200, { reply: out.reply, mode, conversationId: convId, title });
 }
 
-async function handleApi(req, res, p, user) {
+async function handleApi(req, res, p, { user, data }) {
   const m = req.method;
-  if (p === "/api/chat") return m === "POST" ? handleChat(req, res, user) : send(res, 405, { error: "Méthode non autorisée." });
-  if (p === "/api/conversations") {
-    if (m === "GET") return send(res, 200, { conversations: user.conversations });
-    if (m === "POST") return send(res, 200, { ok: true });
-  }
+  if (p === "/api/chat") return m === "POST" ? handleChat(req, res, user, data) : send(res, 405, { error: "Méthode non autorisée." });
+  if (p === "/api/conversations" && m === "GET") return send(res, 200, { conversations: user.conversations });
   const c = p.match(/^\/api\/conversations\/(c_[a-f0-9]{16})$/);
   if (c) {
-    if (!user.conversations.some((x) => x.id === c[1])) return send(res, 404, { error: "Conversation introuvable." });
-    if (m === "GET") {
-      const conv = await db.read(convPath(c[1]));
-      return conv ? send(res, 200, { id: conv.id, title: conv.title, messages: conv.messages }) : send(res, 404, { error: "Conversation introuvable." });
-    }
+    const conv = own(data.conversations, c[1]) ? data.conversations[c[1]] : null;
+    if (!conv || conv.userId !== user.id) return send(res, 404, { error: "Conversation introuvable." });
+    if (m === "GET") return send(res, 200, { id: conv.id, title: conv.title, messages: conv.messages });
     if (m === "DELETE") {
-      await db.remove(convPath(c[1]));
-      await db.update(userPath(user.id), (u) => { u.conversations = u.conversations.filter((x) => x.id !== c[1]); });
+      await db.mutate((d) => {
+        delete d.conversations[c[1]];
+        d.users[user.id].conversations = d.users[user.id].conversations.filter((x) => x.id !== c[1]);
+      });
       return send(res, 200, { ok: true });
     }
   }
   if (p === "/api/memory") {
     if (m === "GET") return send(res, 200, { memory: user.memory });
     if (m === "DELETE") {
-      await db.update(userPath(user.id), (u) => { u.memory = { facts: {}, notes: [] }; });
+      await db.mutate((d) => { d.users[user.id].memory = { facts: {}, notes: [] }; });
       return send(res, 200, { ok: true });
     }
   }
@@ -326,32 +323,37 @@ async function handleContact(req, res) {
   const payload = await readJSON(req);
   const message = String(payload?.message || "").trim().slice(0, 1000);
   if (!message) return send(res, 400, { error: "Le message est vide." });
-  await db.update("contact.json", (c) => {
-    c.messages.unshift({ message, date: new Date().toISOString() });
-    c.messages = c.messages.slice(0, 200);
-  }, () => ({ messages: [] }));
+  await db.mutate((d) => { d.contact.unshift({ message, date: new Date().toISOString() }); d.contact = d.contact.slice(0, 200); });
   return send(res, 200, { ok: true });
 }
 
-async function handleAdmin(req, res) {
+async function handleAdmin(req, res, url) {
   const expected = process.env.ADMIN_KEY || ADMIN_KEY;
   const a = sha(String(req.headers["x-admin-key"] || "")), b = sha(expected);
   if (!crypto.timingSafeEqual(a, b)) return send(res, 401, { error: "Clé administrateur incorrecte." });
-  const data = (await db.read("contact.json")) || { messages: [] };
-  return send(res, 200, { messages: data.messages });
+  const data = await db.load();
+  if (url.pathname === "/api/admin/conversation") {
+    const id = url.searchParams.get("id") || "";
+    const c = ID_CONV.test(id) && own(data.conversations, id) ? data.conversations[id] : null;
+    return c ? send(res, 200, { id: c.id, title: c.title, userId: c.userId, messages: c.messages }) : send(res, 404, { error: "Conversation introuvable." });
+  }
+  const conversations = Object.values(data.conversations)
+    .map((c) => ({ id: c.id, userId: c.userId, title: c.title, count: c.messages.length, updatedAt: c.updatedAt || c.createdAt }))
+    .sort((x, y) => String(y.updatedAt).localeCompare(String(x.updatedAt))).slice(0, 50);
+  return send(res, 200, { messages: data.contact, conversations, users: Object.keys(data.users).length, storage: ghOn ? "github" : FILE_KIND });
 }
 
 module.exports = async (req, res) => {
   const p = new URL(req.url, "http://localhost").pathname;
   try {
-    if (p === "/api/status") return send(res, 200, { storage: STORAGE_KIND });
+    if (p === "/api/status") return send(res, 200, { storage: ghOn ? "github" : FILE_KIND, reason: ghReason });
     if (p === "/api/user" && req.method === "POST") return await createUser(res);
     if (p === "/api/contact") return await handleContact(req, res);
-    if (p === "/api/admin/data") return await handleAdmin(req, res);
+    if (p === "/api/admin/data" || p === "/api/admin/conversation") return await handleAdmin(req, res, new URL(req.url, "http://localhost"));
     if (p.startsWith("/api/")) {
-      const user = await auth(req);
-      if (!user) return send(res, 401, { error: "Session invalide." });
-      return await handleApi(req, res, p, user);
+      const session = await auth(req);
+      if (!session) return send(res, 401, { error: "Session invalide." });
+      return await handleApi(req, res, p, session);
     }
     const entry = STATIC[p];
     if (entry && (req.method === "GET" || req.method === "HEAD")) {
@@ -369,5 +371,5 @@ module.exports = async (req, res) => {
 
 if (require.main === module) {
   const port = process.env.PORT || 3000;
-  require("http").createServer(module.exports).listen(port, () => console.log(`NebulaAI → http://localhost:${port} (stockage : ${STORAGE_KIND})`));
+  require("http").createServer(module.exports).listen(port, () => console.log(`NebulaAI → http://localhost:${port} (stockage : ${ghOn ? "github" : FILE_KIND})`));
 }

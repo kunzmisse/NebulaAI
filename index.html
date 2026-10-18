@@ -233,21 +233,40 @@ $("contactSend").onclick = async () => {
 };
 
 /* Admin (rendu en texte : aucun HTML injecté) */
+const when = d => d ? new Date(d).toLocaleString("fr-FR") : "";
+const section = (t) => { const e = document.createElement("h3"); e.className = "sec"; e.textContent = t; return e; };
 $("adminLoad").onclick = async () => {
-  const fb = $("adminFb"), list = $("list");
+  const fb = $("adminFb"), list = $("list"), key = $("adminKey").value;
   try {
-    const res = await fetch("/api/admin/data", { headers: { "x-admin-key": $("adminKey").value } });
+    const res = await fetch("/api/admin/data", { headers: { "x-admin-key": key } });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || "Accès refusé.");
     list.replaceChildren();
-    fb.className = "feedback hidden";
-    if (!data.messages.length) return feedback(fb, "Aucun message pour l'instant.", true);
+    feedback(fb, `Stockage : ${data.storage} · ${data.users} utilisateur(s) · ${data.messages.length} message(s) de contact · ${data.conversations.length} discussion(s)`, true);
+    list.appendChild(section("Messages de contact"));
+    if (!data.messages.length) { const p = document.createElement("p"); p.textContent = "Aucun message de contact."; list.appendChild(p); }
     data.messages.forEach(m => {
       const d = document.createElement("div"); d.className = "mail";
-      const t = document.createElement("time");
-      t.textContent = m.date ? new Date(m.date).toLocaleString("fr-FR") : "";
-      d.append(t, document.createTextNode(m.message));
-      list.appendChild(d);
+      const t = document.createElement("time"); t.textContent = when(m.date);
+      d.append(t, document.createTextNode(m.message)); list.appendChild(d);
+    });
+    list.appendChild(section("Discussions des utilisateurs"));
+    data.conversations.forEach(c => {
+      const d = document.createElement("div"); d.className = "mail";
+      const t = document.createElement("time"); t.textContent = `${when(c.updatedAt)} · ${c.count} messages · ${c.userId}`;
+      const b = document.createElement("button"); b.type = "button"; b.className = "adm-title"; b.textContent = c.title;
+      const body = document.createElement("div"); body.className = "hidden adm-body";
+      b.onclick = async () => {
+        if (!body.hasChildNodes()) {
+          try {
+            const r = await fetch("/api/admin/conversation?id=" + c.id, { headers: { "x-admin-key": key } });
+            const j = await r.json();
+            j.messages.forEach(m => { const l = document.createElement("p"); l.textContent = (m.role === "user" ? "Utilisateur : " : "NebulaAI : ") + m.content; body.appendChild(l); });
+          } catch { body.textContent = "Lecture impossible."; }
+        }
+        body.classList.toggle("hidden");
+      };
+      d.append(t, b, body); list.appendChild(d);
     });
   } catch (e) { list.replaceChildren(); feedback(fb, e.message, false); }
 };
@@ -255,6 +274,7 @@ $("adminLoad").onclick = async () => {
 hero();
 fetch("/api/status").then(r => r.json()).then(s => {
   $("storeInfo").textContent = { github: "Stockage GitHub", local: "Stockage local", temporaire: "Stockage temporaire" }[s.storage] || "";
+  if (s.reason) $("storeInfo").title = s.reason;
 }).catch(() => {});
 (async () => {
   await loadList();
