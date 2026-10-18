@@ -25,7 +25,9 @@
     <button class="nav" type="button" data-tab="contact"><i class="fa-solid fa-envelope"></i>Contacter l'admin</button>
     <button class="nav" type="button" data-tab="admin"><i class="fa-solid fa-shield-halved"></i>Espace admin</button>
   </nav>
-  <div class="side-foot"><span>Nouvelle discussion</span><button class="btn danger" type="button" id="clear" style="padding:6px 10px" aria-label="Effacer la discussion"><i class="fa-solid fa-rotate-right"></i></button></div>
+  <div class="hist-head"><span>Historique</span><button class="btn solid" type="button" id="newChat"><i class="fa-solid fa-plus"></i>Nouvelle</button></div>
+  <div id="convList" class="conv-list"></div>
+  <div class="side-foot"><span id="storeInfo">Stockage…</span><button class="btn danger" type="button" id="forget" title="Effacer la mémoire de NebulaAI" aria-label="Effacer la mémoire"><i class="fa-solid fa-brain"></i></button></div>
 </aside>
 
 <main>
@@ -80,7 +82,25 @@
 const $ = id => document.getElementById(id);
 const thread = $("thread"), input = $("userInput");
 const LABEL = { roast: "Roast", fix: "Fix" };
-let history = [], busy = false;
+let conv = null, busy = false, auth = "";
+try { auth = localStorage.getItem("nebula.auth") || ""; } catch {}
+
+/* API authentifiée : chaque visiteur a un compte créé par le serveur */
+async function initUser() {
+  const r = await fetch("/api/user", { method: "POST" });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || "Impossible de créer la session.");
+  auth = d.userId + "." + d.token;
+  try { localStorage.setItem("nebula.auth", auth); } catch {}
+}
+async function api(path, opts = {}, retry = true) {
+  if (!auth) await initUser();
+  const res = await fetch(path, { ...opts, headers: { "Content-Type": "application/json", Authorization: "Bearer " + auth } });
+  if (res.status === 401 && retry) { auth = ""; conv = null; await initUser(); return api(path, opts, false); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Erreur du serveur.");
+  return data;
+}
 
 /* Navigation */
 const sidebar = $("sidebar"), overlay = $("overlay");
@@ -145,16 +165,11 @@ async function sendMessage(mode) {
   add("user", esc(message).replace(/\n/g, "<br>"), { mode });
   const wait = add("ai", '<span class="dots"><i></i><i></i><i></i></span>');
   try {
-    const res = await fetch("/api/chat", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, mode, history }),
-    });
-    const data = await res.json().catch(() => ({}));
+    const data = await api("/api/chat", { method: "POST", body: JSON.stringify({ message, mode, conversationId: conv }) });
     wait.remove();
-    if (!res.ok) throw new Error(data.error || "Erreur du serveur.");
+    conv = data.conversationId;
     add("ai", render(data.reply), { raw: data.reply });
-    history.push({ role: "user", content: message }, { role: "assistant", content: data.reply });
-    history = history.slice(-12);
+    loadList();
   } catch (e) {
     wait.remove();
     add("error", esc(e.message || "Erreur de connexion au serveur."));
@@ -169,7 +184,39 @@ function grow() { input.style.height = "auto"; input.style.height = Math.min(inp
 input.addEventListener("input", grow);
 input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage("normal"); } });
 document.querySelectorAll(".actions .btn").forEach(b => b.onclick = () => sendMessage(b.dataset.mode));
-$("clear").onclick = () => { history = []; hero(); menu(false); };
+
+/* Historique des discussions */
+async function loadList() {
+  try {
+    const { conversations } = await api("/api/conversations");
+    const box = $("convList"); box.replaceChildren();
+    if (!conversations.length) { box.innerHTML = '<p class="conv-empty">Aucune discussion pour l\'instant.</p>'; return; }
+    conversations.forEach(c => {
+      const row = document.createElement("div"); row.className = "conv" + (c.id === conv ? " on" : "");
+      const open = document.createElement("button"); open.type = "button"; open.textContent = c.title; open.onclick = () => openConv(c.id);
+      const del = document.createElement("button"); del.type = "button"; del.className = "del"; del.setAttribute("aria-label", "Supprimer");
+      del.innerHTML = '<i class="fa-solid fa-trash"></i>';
+      del.onclick = async () => { await api("/api/conversations/" + c.id, { method: "DELETE" }); if (conv === c.id) newChat(); loadList(); };
+      row.append(open, del); box.appendChild(row);
+    });
+  } catch {}
+}
+async function openConv(id) {
+  try {
+    const d = await api("/api/conversations/" + id);
+    conv = id; thread.replaceChildren();
+    d.messages.forEach(m => m.role === "user"
+      ? add("user", esc(m.content).replace(/\n/g, "<br>"), { mode: m.mode })
+      : add("ai", render(m.content), { raw: m.content }));
+    document.querySelector('.nav[data-tab="chat"]').click(); menu(false); loadList();
+  } catch (e) { add("error", esc(e.message)); }
+}
+function newChat() { conv = null; hero(); menu(false); loadList(); }
+$("newChat").onclick = newChat;
+$("forget").onclick = async () => {
+  if (!confirm("Effacer ce que NebulaAI a retenu sur toi (prénom, notes…) ?")) return;
+  try { await api("/api/memory", { method: "DELETE" }); add("ai", "Mémoire effacée."); } catch (e) { add("error", esc(e.message)); }
+};
 
 /* Contact */
 function feedback(el, text, ok) { el.textContent = text; el.className = "feedback " + (ok ? "ok" : "ko"); }
@@ -206,6 +253,16 @@ $("adminLoad").onclick = async () => {
 };
 
 hero();
+fetch("/api/status").then(r => r.json()).then(s => {
+  $("storeInfo").textContent = { github: "Stockage GitHub", local: "Stockage local", temporaire: "Stockage temporaire" }[s.storage] || "";
+}).catch(() => {});
+(async () => {
+  await loadList();
+  try {
+    const { conversations } = await api("/api/conversations");
+    if (conversations[0]) openConv(conversations[0].id);
+  } catch {}
+})();
 </script>
 </body>
 </html>
