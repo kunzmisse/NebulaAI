@@ -138,6 +138,7 @@ async function handleChat(req, res) {
 const KV_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
 const KV_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
 const LIST_KEY = "nebulaai:messages";
+const ADMIN_KEY = "nebula-ajMbzWjcZeQdTLw76yTIx4Z7"; // clé admin (peut être remplacée par la variable Vercel ADMIN_KEY)
 
 async function kv(command) {
   const r = await fetch(KV_URL, {
@@ -167,8 +168,7 @@ async function handleContact(req, res) {
 }
 
 async function handleAdmin(req, res) {
-  const expected = process.env.ADMIN_KEY;
-  if (!expected) return send(res, 503, { error: "ADMIN_KEY n'est pas défini dans les variables Vercel." });
+  const expected = process.env.ADMIN_KEY || ADMIN_KEY;
   const given = String(req.headers["x-admin-key"] || "");
   const a = Buffer.from(given), b = Buffer.from(expected);
   if (a.length !== b.length || !require("crypto").timingSafeEqual(a, b))
